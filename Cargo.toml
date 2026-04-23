@@ -27,7 +27,14 @@ chrono = { version = "0.4", features = ["serde"] }
 argon2 = "0.5"
 rand = "0.8"
 base64 = "0.22"
+oauth2 = "4.4"
+tower-sessions = "0.13"
+tower-sessions-sqlx-store = { version = "0.14", features = ["sqlite"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+async-trait = "0.1"
+time = "0.3"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 tempfile = "3"
+wiremock = "0.6"

@@ -2,8 +2,10 @@ use axum::{Router, extract::State, routing::get};
 use sqlx::SqlitePool;
 use std::sync::Arc;
 
+pub mod auth;
 pub mod config;
 pub mod db;
+pub mod error;
 pub mod models;
 
 pub use config::Config;
@@ -22,26 +24,26 @@ pub async fn app(config: Config) -> anyhow::Result<Router> {
         .into_owned();
     let pool = db::connect(&format!("sqlite://{db_url}")).await?;
     db::migrate(&pool).await?;
-    let state = AppState {
-        config: Arc::new(config),
-        pool,
-    };
-    Ok(build_router(state))
+    build(config, pool).await
 }
 
 pub async fn app_with_pool(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
     db::migrate(&pool).await?;
+    build(config, pool).await
+}
+
+async fn build(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
+    let session_layer = auth::session::install(pool.clone()).await?;
     let state = AppState {
         config: Arc::new(config),
         pool,
     };
-    Ok(build_router(state))
-}
-
-fn build_router(state: AppState) -> Router {
-    Router::new()
+    let router = Router::new()
         .route("/health", get(health))
+        .merge(auth::router())
         .with_state(state)
+        .layer(session_layer);
+    Ok(router)
 }
 
 async fn health(State(_): State<AppState>) -> &'static str {

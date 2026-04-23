@@ -9,13 +9,22 @@ pub struct Config {
     pub github_client_secret: String,
     pub session_secret: Vec<u8>,
     pub base_url: String,
+    /// OAuth2 authorize endpoint. Defaults to GitHub's; overridden in tests.
+    pub github_auth_url: String,
+    /// OAuth2 token endpoint. Defaults to GitHub's; overridden in tests.
+    pub github_token_url: String,
+    /// Base URL for the GitHub REST API (`/user`, `/user/emails`). Defaults to api.github.com.
+    pub github_api_base: String,
 }
+
+const DEFAULT_GITHUB_AUTH_URL: &str = "https://github.com/login/oauth/authorize";
+const DEFAULT_GITHUB_TOKEN_URL: &str = "https://github.com/login/oauth/access_token";
+const DEFAULT_GITHUB_API_BASE: &str = "https://api.github.com";
 
 impl Config {
     pub fn from_env() -> Result<Self> {
-        let data_dir = PathBuf::from(
-            std::env::var("DATA_DIR").context("DATA_DIR env var missing")?,
-        );
+        let data_dir =
+            PathBuf::from(std::env::var("DATA_DIR").context("DATA_DIR env var missing")?);
         let github_client_id =
             std::env::var("GITHUB_CLIENT_ID").context("GITHUB_CLIENT_ID env var missing")?;
         let github_client_secret = std::env::var("GITHUB_CLIENT_SECRET")
@@ -37,6 +46,9 @@ impl Config {
             github_client_secret,
             session_secret,
             base_url,
+            github_auth_url: DEFAULT_GITHUB_AUTH_URL.to_string(),
+            github_token_url: DEFAULT_GITHUB_TOKEN_URL.to_string(),
+            github_api_base: DEFAULT_GITHUB_API_BASE.to_string(),
         })
     }
 
@@ -48,6 +60,9 @@ impl Config {
             github_client_secret: "test_csec".to_string(),
             session_secret: vec![0u8; 64],
             base_url: "http://localhost:3000".to_string(),
+            github_auth_url: DEFAULT_GITHUB_AUTH_URL.to_string(),
+            github_token_url: DEFAULT_GITHUB_TOKEN_URL.to_string(),
+            github_api_base: DEFAULT_GITHUB_API_BASE.to_string(),
         }
     }
 }

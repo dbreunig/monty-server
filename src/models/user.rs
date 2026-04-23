@@ -49,4 +49,17 @@ impl User {
         .await?;
         Ok(row)
     }
+
+    pub async fn find_by_github_id(pool: &SqlitePool, github_id: i64) -> Result<Option<Self>> {
+        let row = sqlx::query_as::<_, User>(
+            r#"
+            SELECT id, github_id, github_login, email, created_at
+            FROM users WHERE github_id = ?
+            "#,
+        )
+        .bind(github_id)
+        .fetch_optional(pool)
+        .await?;
+        Ok(row)
+    }
 }
