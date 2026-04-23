@@ -33,8 +33,11 @@ tower-sessions-sqlx-store = { version = "0.14", features = ["sqlite"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 async-trait = "0.1"
 time = "0.3"
+askama = "0.12"
+askama_axum = "0.4"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 tempfile = "3"
 wiremock = "0.6"
+http-body-util = "0.1"

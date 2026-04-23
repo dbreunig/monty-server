@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — {{ user.github_login }}{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<p>Signed in as <strong>{{ user.github_login }}</strong>.</p>
+
+<h2>API keys</h2>
+<div id="api-keys">{% include "_api_keys.html" %}</div>
+
+<form hx-post="/api-keys" hx-target="#api-keys" hx-swap="outerHTML">
+    <label>Name: <input type="text" name="name" required></label>
+    <button type="submit">Create API key</button>
+</form>
+
+<h2>Environments</h2>
+<p><em>(coming soon)</em></p>
+{% endblock %}

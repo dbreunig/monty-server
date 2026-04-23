@@ -43,6 +43,7 @@ async fn build(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
         .route("/health", get(health))
         .merge(auth::router())
         .merge(routes::api::router())
+        .merge(routes::web::router())
         .with_state(state)
         .layer(session_layer);
     Ok(router)

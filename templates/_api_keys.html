@@ -1,0 +1,22 @@
+<div id="api-keys">
+{% if let Some(plaintext) = new_plaintext %}
+<p class="warn">Copy this token now — you will not see it again:</p>
+<p><span class="token">{{ plaintext }}</span></p>
+{% endif %}
+<table>
+    <thead><tr><th>Name</th><th>Prefix</th><th>Created</th><th></th></tr></thead>
+    <tbody>
+        {% for key in api_keys %}
+        <tr>
+            <td>{{ key.name }}</td>
+            <td><code>{{ key.prefix }}…</code></td>
+            <td>{{ key.created_at }}</td>
+            <td>
+                <button hx-post="/api-keys/{{ key.id }}/delete"
+                        hx-target="#api-keys" hx-swap="outerHTML">Delete</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>

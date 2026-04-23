@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}monty-server{% endblock %}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
+        .token { font-family: monospace; padding: 0.25rem 0.5rem; background: #eef; border-radius: 3px; }
+        .warn { color: #b00; font-weight: bold; }
+    </style>
+</head>
+<body>
+{% block content %}{% endblock %}
+</body>
+</html>
