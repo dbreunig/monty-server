@@ -7,6 +7,7 @@ pub mod config;
 pub mod db;
 pub mod error;
 pub mod models;
+pub mod routes;
 
 pub use config::Config;
 
@@ -41,6 +42,7 @@ async fn build(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
     let router = Router::new()
         .route("/health", get(health))
         .merge(auth::router())
+        .merge(routes::api::router())
         .with_state(state)
         .layer(session_layer);
     Ok(router)

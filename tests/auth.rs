@@ -2,6 +2,7 @@ mod common;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use common::TestApp;
+use monty_server::models::{ApiKey, User};
 use tower::ServiceExt;
 
 #[tokio::test]
@@ -125,4 +126,55 @@ async fn callback_completes_oauth_with_mocked_github() {
         .expect("user row created");
     assert_eq!(found.github_login, "octocat");
     assert_eq!(found.email.as_deref(), Some("o@example.com"));
+}
+
+#[tokio::test]
+async fn bearer_token_auth_accepts_valid_rejects_invalid() {
+    let app = TestApp::new().await;
+    let user = User::upsert(&app.pool, 1, "u", None).await.unwrap();
+    let (_, token) = ApiKey::create(&app.pool, user.id, "t").await.unwrap();
+
+    // Valid
+    let r = app
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/envs")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200);
+
+    // Invalid
+    let r = app
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/envs")
+                .header("authorization", "Bearer mk_nope")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 401);
+
+    // Missing
+    let r = app
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/envs")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 401);
 }
