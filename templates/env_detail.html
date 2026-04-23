@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ env.name }}{% endblock %}
+{% block content %}
+<h1>{{ env.name }} <small><code>{{ env.id }}</code></small></h1>
+<p><a href="/envs">← All environments</a></p>
+
+<h2>Files</h2>
+<div id="file-list">{% include "_file_list.html" %}</div>
+
+<form hx-post="/envs/{{ env.id }}/files" hx-target="#file-list" hx-swap="outerHTML"
+      hx-encoding="multipart/form-data">
+    <input type="file" name="file" required>
+    <button type="submit">Upload</button>
+</form>
+
+<h2>REPL</h2>
+<div id="transcript"></div>
+<form hx-post="/envs/{{ env.id }}/repl" hx-target="#transcript" hx-swap="beforeend">
+    <textarea name="code" rows="6" cols="80" placeholder="Python..."></textarea><br>
+    <button type="submit">Run</button>
+</form>
+{% endblock %}

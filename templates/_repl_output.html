@@ -1,0 +1,7 @@
+<div class="repl-output">
+<pre><code>&gt;&gt;&gt; {{ code }}</code></pre>
+{% if !stdout.is_empty() %}<pre>{{ stdout }}</pre>{% endif %}
+{% if !stderr.is_empty() %}<pre style="color: #b00;">{{ stderr }}</pre>{% endif %}
+{% if let Some(err) = error %}<pre class="warn">{{ err }}</pre>{% endif %}
+{% if let Some(res) = result %}<pre><em>= {{ res }}</em></pre>{% endif %}
+</div>

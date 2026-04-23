@@ -1,0 +1,23 @@
+<div id="env-list">
+{% if envs.is_empty() %}
+<p><em>No environments yet.</em></p>
+{% else %}
+<table>
+    <thead><tr><th>Name</th><th>Id</th><th>Updated</th><th></th></tr></thead>
+    <tbody>
+        {% for env in envs %}
+        <tr>
+            <td><a href="/envs/{{ env.id }}">{{ env.name }}</a></td>
+            <td><code>{{ env.id }}</code></td>
+            <td>{{ env.updated_at }}</td>
+            <td>
+                <button hx-delete="/envs/{{ env.id }}"
+                        hx-confirm="Delete {{ env.name }}?"
+                        hx-target="#env-list" hx-swap="outerHTML">Delete</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+</div>
