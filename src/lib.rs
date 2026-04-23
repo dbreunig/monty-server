@@ -5,6 +5,7 @@ use std::sync::Arc;
 pub mod auth;
 pub mod config;
 pub mod db;
+pub mod envs;
 pub mod error;
 pub mod models;
 pub mod routes;
