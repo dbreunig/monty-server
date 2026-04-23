@@ -86,6 +86,10 @@ impl MontyExecutor {
         self.limits = limits;
         self
     }
+
+    pub fn locks(&self) -> &LockRegistry {
+        &self.locks
+    }
 }
 
 #[axum::async_trait]

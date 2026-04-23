@@ -1,4 +1,5 @@
-use axum::extract::{Path, State};
+use axum::body::Bytes;
+use axum::extract::{Multipart, Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
@@ -8,8 +9,11 @@ use serde::Deserialize;
 use crate::AppState;
 use crate::auth::middleware::BearerUser;
 use crate::envs::executor::{EnvExecutor, ExecOutput};
+use crate::envs::storage::FileEntry;
 use crate::error::AppResult;
 use crate::models::Env;
+
+const MAX_FILE_UPLOAD_BYTES: usize = 50 * 1024 * 1024;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -17,6 +21,11 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/envs/:id", delete(delete_env))
         .route("/api/v1/envs/:id/execute", post(execute_in_env))
         .route("/api/v1/execute", post(execute_one_off))
+        .route("/api/v1/envs/:id/files", get(list_files).post(upload_file))
+        .route(
+            "/api/v1/envs/:id/files/:name",
+            get(download_file).delete(delete_file),
+        )
 }
 
 async fn list_envs(
@@ -88,4 +97,83 @@ async fn execute_one_off(
 ) -> AppResult<Response> {
     let output = state.executor.execute_one_off(&body.code).await?;
     Ok(Json(output).into_response())
+}
+
+async fn list_files(
+    State(state): State<AppState>,
+    BearerUser(user): BearerUser,
+    Path(id): Path<String>,
+) -> AppResult<Response> {
+    if Env::find_for_user(&state.pool, user.id, &id).await?.is_none() {
+        return Ok((StatusCode::NOT_FOUND, "not found").into_response());
+    }
+    let files: Vec<FileEntry> = state.env_storage.list_files(&id).await?;
+    Ok(Json(files).into_response())
+}
+
+async fn upload_file(
+    State(state): State<AppState>,
+    BearerUser(user): BearerUser,
+    Path(id): Path<String>,
+    mut multipart: Multipart,
+) -> AppResult<Response> {
+    if Env::find_for_user(&state.pool, user.id, &id).await?.is_none() {
+        return Ok((StatusCode::NOT_FOUND, "not found").into_response());
+    }
+    let _guard = state.executor.locks().acquire(&id).await;
+    let mut uploaded = Vec::new();
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| anyhow::anyhow!("multipart: {e}"))?
+    {
+        let Some(name) = field.file_name().map(|s| s.to_string()) else {
+            continue;
+        };
+        let data: Bytes = field
+            .bytes()
+            .await
+            .map_err(|e| anyhow::anyhow!("multipart read: {e}"))?;
+        if data.len() > MAX_FILE_UPLOAD_BYTES {
+            return Ok((StatusCode::PAYLOAD_TOO_LARGE, "file too large").into_response());
+        }
+        state.env_storage.write_file(&id, &name, &data).await?;
+        uploaded.push(name);
+    }
+    Ok(Json(serde_json::json!({ "uploaded": uploaded })).into_response())
+}
+
+async fn download_file(
+    State(state): State<AppState>,
+    BearerUser(user): BearerUser,
+    Path((id, name)): Path<(String, String)>,
+) -> AppResult<Response> {
+    if Env::find_for_user(&state.pool, user.id, &id).await?.is_none() {
+        return Ok((StatusCode::NOT_FOUND, "not found").into_response());
+    }
+    match state.env_storage.read_file(&id, &name).await {
+        Ok(bytes) => Ok((
+            StatusCode::OK,
+            [("content-type", "application/octet-stream")],
+            bytes,
+        )
+            .into_response()),
+        Err(_) => Ok((StatusCode::NOT_FOUND, "not found").into_response()),
+    }
+}
+
+async fn delete_file(
+    State(state): State<AppState>,
+    BearerUser(user): BearerUser,
+    Path((id, name)): Path<(String, String)>,
+) -> AppResult<Response> {
+    if Env::find_for_user(&state.pool, user.id, &id).await?.is_none() {
+        return Ok((StatusCode::NOT_FOUND, "not found").into_response());
+    }
+    let _guard = state.executor.locks().acquire(&id).await;
+    let deleted = state.env_storage.delete_file(&id, &name).await?;
+    if !deleted {
+        return Ok((StatusCode::NOT_FOUND, "not found").into_response());
+    }
+    Ok((StatusCode::OK, "deleted").into_response())
 }
