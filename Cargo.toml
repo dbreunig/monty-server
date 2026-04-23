@@ -36,9 +36,12 @@ time = "0.3"
 askama = "0.12"
 askama_axum = "0.4"
 dashmap = "6"
+monty = { path = "monty/crates/monty" }
+postcard = { version = "1", features = ["use-std"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 tempfile = "3"
 wiremock = "0.6"
 http-body-util = "0.1"
+rmp-serde = "1"

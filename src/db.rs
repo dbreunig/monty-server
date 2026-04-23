@@ -11,8 +11,13 @@ pub async fn connect(url: &str) -> Result<SqlitePool> {
         .foreign_keys(true)
         .disable_statement_logging();
 
+    // `:memory:` gives each connection its own DB; pin the pool to 1 so test
+    // data stays consistent. File-backed DBs use a real pool.
+    let is_memory = url.contains(":memory:") || url == ":memory:";
+    let max_connections = if is_memory { 1 } else { 8 };
+
     let pool = SqlitePoolOptions::new()
-        .max_connections(8)
+        .max_connections(max_connections)
         .connect_with(options)
         .await
         .context("failed to connect to sqlite")?;

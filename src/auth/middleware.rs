@@ -23,8 +23,11 @@ impl FromRequestParts<AppState> for SessionUser {
         let session = Session::from_request_parts(parts, state)
             .await
             .map_err(|_| unauthorized())?;
-        let user_id: Option<i64> = session.get(USER_ID_KEY).await.map_err(|_| unauthorized())?;
-        let Some(user_id) = user_id else {
+        // Stored as a string because some deps enable serde_json's
+        // `arbitrary_precision` feature, which breaks msgpack round-trip of
+        // `Value::Number` via `tower-sessions-sqlx-store`.
+        let raw: Option<String> = session.get(USER_ID_KEY).await.map_err(|_| unauthorized())?;
+        let Some(user_id) = raw.and_then(|s| s.parse::<i64>().ok()) else {
             return Err(unauthorized());
         };
         let user = User::find_by_id(&state.pool, user_id)

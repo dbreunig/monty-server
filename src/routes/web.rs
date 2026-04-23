@@ -51,8 +51,8 @@ struct CreateApiKeyForm {
 }
 
 async fn create_api_key(
-    State(state): State<AppState>,
     SessionUser(user): SessionUser,
+    State(state): State<AppState>,
     Form(form): Form<CreateApiKeyForm>,
 ) -> AppResult<Response> {
     let (_key, plaintext) = ApiKey::create(&state.pool, user.id, &form.name).await?;

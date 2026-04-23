@@ -1,9 +1,9 @@
 use axum::Router;
 use monty_server::{Config, app_with_pool, db};
 use sqlx::SqlitePool;
+use std::sync::Arc;
 use tempfile::TempDir;
-use tower_sessions::SessionStore;
-use tower_sessions::session::{Id, Record};
+use tower_sessions::{Expiry, Session};
 use tower_sessions_sqlx_store::SqliteStore;
 
 #[allow(dead_code)]
@@ -33,22 +33,16 @@ impl TestApp {
         Self { router, pool, tmp }
     }
 
-    /// Creates a session record with `user_id` populated and returns a
-    /// `cookie: id=...` header value. Bypasses the OAuth flow.
+    /// Creates a session via the tower-sessions `Session` API (so the record
+    /// is serialized identically to what the middleware expects) and returns
+    /// an `id=...` cookie header.
     #[allow(dead_code)]
     pub async fn sign_in(&self, user_id: i64) -> String {
-        let store = SqliteStore::new(self.pool.clone());
-        let mut data = std::collections::HashMap::new();
-        data.insert(
-            "user_id".to_string(),
-            serde_json::to_value(user_id).unwrap(),
-        );
-        let mut record = Record {
-            id: Id::default(),
-            data,
-            expiry_date: time::OffsetDateTime::now_utc() + time::Duration::days(7),
-        };
-        store.create(&mut record).await.unwrap();
-        format!("id={}", record.id)
+        let store = Arc::new(SqliteStore::new(self.pool.clone()));
+        let session = Session::new(None, store, Some(Expiry::OnInactivity(time::Duration::days(7))));
+        session.insert("user_id", user_id.to_string()).await.unwrap();
+        session.save().await.unwrap();
+        let id = session.id().expect("session id assigned after save");
+        format!("id={id}")
     }
 }
