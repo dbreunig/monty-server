@@ -11,11 +11,13 @@ pub mod models;
 pub mod routes;
 
 pub use config::Config;
+use envs::storage::EnvStorage;
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<Config>,
     pub pool: SqlitePool,
+    pub env_storage: EnvStorage,
 }
 
 pub async fn app(config: Config) -> anyhow::Result<Router> {
@@ -36,9 +38,11 @@ pub async fn app_with_pool(config: Config, pool: SqlitePool) -> anyhow::Result<R
 
 async fn build(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
     let session_layer = auth::session::install(pool.clone()).await?;
+    let env_storage = EnvStorage::new(&config.data_dir);
     let state = AppState {
         config: Arc::new(config),
         pool,
+        env_storage,
     };
     let router = Router::new()
         .route("/health", get(health))
