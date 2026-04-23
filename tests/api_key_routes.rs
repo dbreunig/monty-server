@@ -14,7 +14,8 @@ async fn body_string(res: axum::response::Response) -> String {
 #[tokio::test]
 async fn api_key_create_list_delete_round_trip() {
     let app = TestApp::new().await;
-    let user = User::upsert(&app.pool, 1, "u", None).await.unwrap();
+    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
     let cookie = app.sign_in(user.id).await;
 
     // Create

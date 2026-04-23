@@ -15,6 +15,10 @@ pub struct Config {
     pub github_token_url: String,
     /// Base URL for the GitHub REST API (`/user`, `/user/emails`). Defaults to api.github.com.
     pub github_api_base: String,
+    /// Optional admin email — if set with `admin_password`, a local admin user
+    /// is seeded on startup. That user is auto-approved and can approve others.
+    pub admin_email: Option<String>,
+    pub admin_password: Option<String>,
 }
 
 const DEFAULT_GITHUB_AUTH_URL: &str = "https://github.com/login/oauth/authorize";
@@ -25,10 +29,10 @@ impl Config {
     pub fn from_env() -> Result<Self> {
         let data_dir =
             PathBuf::from(std::env::var("DATA_DIR").context("DATA_DIR env var missing")?);
-        let github_client_id =
-            std::env::var("GITHUB_CLIENT_ID").context("GITHUB_CLIENT_ID env var missing")?;
-        let github_client_secret = std::env::var("GITHUB_CLIENT_SECRET")
-            .context("GITHUB_CLIENT_SECRET env var missing")?;
+        // GitHub OAuth is optional: empty strings (or unset) disable the
+        // "Sign in with GitHub" button. Email/password auth still works.
+        let github_client_id = std::env::var("GITHUB_CLIENT_ID").unwrap_or_default();
+        let github_client_secret = std::env::var("GITHUB_CLIENT_SECRET").unwrap_or_default();
         let session_secret_str =
             std::env::var("SESSION_SECRET").context("SESSION_SECRET env var missing")?;
         let session_secret = session_secret_str.into_bytes();
@@ -39,6 +43,11 @@ impl Config {
             );
         }
         let base_url = std::env::var("BASE_URL").context("BASE_URL env var missing")?;
+        let admin_email = std::env::var("ADMIN_EMAIL").ok().filter(|s| !s.is_empty());
+        let admin_password = std::env::var("ADMIN_PASSWORD").ok().filter(|s| !s.is_empty());
+        if admin_email.is_some() != admin_password.is_some() {
+            bail!("ADMIN_EMAIL and ADMIN_PASSWORD must be set together, or neither");
+        }
 
         Ok(Self {
             data_dir,
@@ -49,6 +58,8 @@ impl Config {
             github_auth_url: DEFAULT_GITHUB_AUTH_URL.to_string(),
             github_token_url: DEFAULT_GITHUB_TOKEN_URL.to_string(),
             github_api_base: DEFAULT_GITHUB_API_BASE.to_string(),
+            admin_email,
+            admin_password,
         })
     }
 
@@ -63,6 +74,8 @@ impl Config {
             github_auth_url: DEFAULT_GITHUB_AUTH_URL.to_string(),
             github_token_url: DEFAULT_GITHUB_TOKEN_URL.to_string(),
             github_api_base: DEFAULT_GITHUB_API_BASE.to_string(),
+            admin_email: None,
+            admin_password: None,
         }
     }
 }

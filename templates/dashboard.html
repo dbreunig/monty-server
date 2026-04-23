@@ -1,8 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — {{ user.github_login }}{% endblock %}
+{% block title %}Dashboard — {{ user.display_name() }}{% endblock %}
 {% block content %}
 <h1>Dashboard</h1>
-<p>Signed in as <strong>{{ user.github_login }}</strong>.</p>
+<p>Signed in as <strong>{{ user.display_name() }}</strong>.
+   {% if user.is_admin %}<a href="/admin">Admin panel →</a>{% endif %}
+</p>
+
+{% if !user.is_approved() %}
+<div style="border:1px solid #b00;padding:1rem;border-radius:4px;background:#fee">
+    <strong>Your account is pending administrator approval.</strong>
+    You'll be able to create API keys and environments once an admin approves you.
+</div>
+{% else %}
 
 <h2>API keys</h2>
 <div id="api-keys">{% include "_api_keys.html" %}</div>
@@ -14,4 +23,10 @@
 
 <h2>Environments</h2>
 <p><a href="/envs">Manage environments →</a></p>
+
+{% endif %}
+
+<p><form method="post" action="/auth/logout" style="display:inline">
+    <button type="submit">Sign out</button>
+</form></p>
 {% endblock %}

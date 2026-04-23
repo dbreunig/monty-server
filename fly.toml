@@ -5,10 +5,12 @@
 #   1. fly launch --no-deploy                    # creates app
 #   2. fly volumes create monty_data --size 10   # 10 GB persistent volume
 #   3. fly secrets set \
-#        GITHUB_CLIENT_ID=... \
-#        GITHUB_CLIENT_SECRET=... \
 #        SESSION_SECRET="$(openssl rand -hex 32)" \
-#        BASE_URL=https://<your-app>.fly.dev
+#        BASE_URL=https://<your-app>.fly.dev \
+#        ADMIN_EMAIL=you@example.com \
+#        ADMIN_PASSWORD="$(openssl rand -hex 16)"
+#      # Optional: add GITHUB_CLIENT_ID=... GITHUB_CLIENT_SECRET=... for GitHub
+#      # OAuth. With just the admin vars, sign-in is email/password only.
 #   4. fly deploy
 
 app = "monty-server"

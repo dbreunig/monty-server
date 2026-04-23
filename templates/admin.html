@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Admin — pending approvals{% endblock %}
+{% block content %}
+<h1>Admin</h1>
+<p>Signed in as <strong>{{ admin.display_name() }}</strong> (admin).</p>
+<p><a href="/dashboard">← Dashboard</a></p>
+
+<h2>Pending approvals</h2>
+<div id="pending">{% include "_admin_pending.html" %}</div>
+{% endblock %}

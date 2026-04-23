@@ -113,7 +113,7 @@ pub async fn callback(
         .and_then(|e| e["email"].as_str())
         .map(|s| s.to_string());
 
-    let user = User::upsert(&state.pool, github_id, github_login, email.as_deref()).await?;
+    let user = User::upsert_github(&state.pool, github_id, github_login, email.as_deref()).await?;
     session.insert(USER_ID_KEY, user.id.to_string()).await?;
 
     Ok(found("/dashboard"))

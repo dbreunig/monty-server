@@ -1,10 +1,16 @@
 CREATE TABLE users (
     id INTEGER PRIMARY KEY,
-    github_id INTEGER NOT NULL UNIQUE,
-    github_login TEXT NOT NULL,
+    github_id INTEGER UNIQUE,
+    github_login TEXT,
     email TEXT,
+    password_hash TEXT,
+    is_admin INTEGER NOT NULL DEFAULT 0,
+    approved_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+-- Local (password) accounts must have unique emails. GitHub users may share
+-- emails with local users; their identity is the github_id.
+CREATE UNIQUE INDEX idx_users_local_email ON users(email) WHERE password_hash IS NOT NULL;
 
 CREATE TABLE api_keys (
     id INTEGER PRIMARY KEY,

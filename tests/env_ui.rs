@@ -14,7 +14,8 @@ async fn body_string(res: axum::response::Response) -> String {
 #[tokio::test]
 async fn env_list_page_renders() {
     let app = TestApp::new().await;
-    let user = User::upsert(&app.pool, 1, "u", None).await.unwrap();
+    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
     let cookie = app.sign_in(user.id).await;
 
     let res = app
@@ -37,7 +38,8 @@ async fn env_list_page_renders() {
 #[tokio::test]
 async fn env_detail_page_shows_name_and_files() {
     let app = TestApp::new().await;
-    let user = User::upsert(&app.pool, 1, "u", None).await.unwrap();
+    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
     let cookie = app.sign_in(user.id).await;
     let env = Env::create(&app.pool, user.id, "scratch").await.unwrap();
     // Ensure storage dir exists
@@ -77,8 +79,10 @@ async fn env_detail_page_shows_name_and_files() {
 #[tokio::test]
 async fn env_detail_for_other_user_is_404() {
     let app = TestApp::new().await;
-    let alice = User::upsert(&app.pool, 1, "alice", None).await.unwrap();
-    let bob = User::upsert(&app.pool, 2, "bob", None).await.unwrap();
+    let alice = User::upsert_github(&app.pool, 1, "alice", None).await.unwrap();
+    User::approve(&app.pool, alice.id).await.unwrap();
+    let bob = User::upsert_github(&app.pool, 2, "bob", None).await.unwrap();
+    User::approve(&app.pool, bob.id).await.unwrap();
     let env = Env::create(&app.pool, alice.id, "alice-env").await.unwrap();
     let cookie = app.sign_in(bob.id).await;
 

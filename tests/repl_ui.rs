@@ -49,7 +49,8 @@ fn urlencoded(s: &str) -> String {
 #[tokio::test]
 async fn repl_fragments_persist_state_across_posts() {
     let app = TestApp::new().await;
-    let user = User::upsert(&app.pool, 1, "u", None).await.unwrap();
+    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
     let cookie = app.sign_in(user.id).await;
     let env = Env::create(&app.pool, user.id, "scratch").await.unwrap();
     EnvStorage::new(app.tmp.path()).create(&env.id).await.unwrap();
@@ -65,8 +66,10 @@ async fn repl_fragments_persist_state_across_posts() {
 #[tokio::test]
 async fn repl_for_other_users_env_is_404() {
     let app = TestApp::new().await;
-    let alice = User::upsert(&app.pool, 1, "alice", None).await.unwrap();
-    let bob = User::upsert(&app.pool, 2, "bob", None).await.unwrap();
+    let alice = User::upsert_github(&app.pool, 1, "alice", None).await.unwrap();
+    User::approve(&app.pool, alice.id).await.unwrap();
+    let bob = User::upsert_github(&app.pool, 2, "bob", None).await.unwrap();
+    User::approve(&app.pool, bob.id).await.unwrap();
     let env = Env::create(&app.pool, alice.id, "alice-env").await.unwrap();
     EnvStorage::new(app.tmp.path()).create(&env.id).await.unwrap();
     let cookie = app.sign_in(bob.id).await;

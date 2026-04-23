@@ -7,7 +7,7 @@ with bearer tokens.
 
 - **Stateful envs** — each env persists its globals/heap to disk via `MontyRepl::dump`
 - **Sandboxed filesystem** — each env mounts a private directory at `/mnt` inside the sandbox
-- **GitHub OAuth** — sign in with your GitHub account, manage API keys
+- **Two sign-in options** — email/password (with admin approval) or GitHub OAuth
 - **Single binary** — Axum + SQLite + local disk, no external services
 
 ## Quick start (local dev)
@@ -65,6 +65,24 @@ via the dashboard at `/dashboard`.
 | `GET /api/v1/envs/:id/files/:name` | Download a file |
 | `DELETE /api/v1/envs/:id/files/:name` | Delete a file |
 
+## Authentication
+
+New accounts — whether they sign up with email/password or GitHub OAuth —
+start in **pending-approval** state. An admin must approve them from the
+`/admin` panel before they can create API keys or environments.
+
+The first admin is bootstrapped via env vars:
+
+```bash
+ADMIN_EMAIL=you@example.com
+ADMIN_PASSWORD=some-long-random-password
+```
+
+On startup the server upserts that user with `is_admin=1, approved_at=now()`.
+Changing the env var rotates the password. For a GitHub-only deployment
+(no local admin), leave these unset and manually flip `is_admin=1` on a user
+row after your first sign-in.
+
 ## Configuration
 
 All config is from env vars. See [`.env.example`](./.env.example) for the full list.
@@ -73,9 +91,11 @@ All config is from env vars. See [`.env.example`](./.env.example) for the full l
 |----------|----------|-------------|
 | `DATA_DIR` | ✅ | Directory for SQLite + env snapshots + files |
 | `BASE_URL` | ✅ | Public URL (for OAuth callback) |
-| `GITHUB_CLIENT_ID` | ✅ | GitHub OAuth App client id |
+| `GITHUB_CLIENT_ID` | ✅ | GitHub OAuth App client id (empty string disables OAuth) |
 | `GITHUB_CLIENT_SECRET` | ✅ | GitHub OAuth App client secret |
 | `SESSION_SECRET` | ✅ | Random secret (≥ 64 bytes) for session cookies |
+| `ADMIN_EMAIL` | | Seeds a local admin user on startup (with `ADMIN_PASSWORD`) |
+| `ADMIN_PASSWORD` | | Admin password (≥ 8 chars); must be set together with `ADMIN_EMAIL` |
 | `RUST_LOG` | | Tracing filter (default `info`) |
 
 ## Architecture

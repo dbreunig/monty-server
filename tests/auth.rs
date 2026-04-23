@@ -13,7 +13,7 @@ async fn login_redirects_to_github_with_state_cookie() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/auth/login")
+                .uri("/auth/login-github")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -72,7 +72,7 @@ async fn callback_completes_oauth_with_mocked_github() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/auth/login")
+                .uri("/auth/login-github")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -124,14 +124,15 @@ async fn callback_completes_oauth_with_mocked_github() {
         .await
         .unwrap()
         .expect("user row created");
-    assert_eq!(found.github_login, "octocat");
+    assert_eq!(found.github_login.as_deref(), Some("octocat"));
     assert_eq!(found.email.as_deref(), Some("o@example.com"));
 }
 
 #[tokio::test]
 async fn bearer_token_auth_accepts_valid_rejects_invalid() {
     let app = TestApp::new().await;
-    let user = User::upsert(&app.pool, 1, "u", None).await.unwrap();
+    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
     let (_, token) = ApiKey::create(&app.pool, user.id, "t").await.unwrap();
 
     // Valid

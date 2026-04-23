@@ -14,6 +14,7 @@ pub use config::Config;
 use envs::executor::MontyExecutor;
 use envs::locks::LockRegistry;
 use envs::storage::EnvStorage;
+use models::User;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -44,6 +45,10 @@ async fn build(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
     let env_storage = EnvStorage::new(&config.data_dir);
     let locks = LockRegistry::new();
     let executor = Arc::new(MontyExecutor::new(env_storage.clone(), locks));
+    if let (Some(email), Some(password)) = (&config.admin_email, &config.admin_password) {
+        User::ensure_admin(&pool, email, password).await?;
+        tracing::info!(admin_email = %email, "admin user seeded");
+    }
     let state = AppState {
         config: Arc::new(config),
         pool,
@@ -53,6 +58,7 @@ async fn build(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
     let router = Router::new()
         .route("/health", get(health))
         .merge(auth::router())
+        .merge(routes::admin::router())
         .merge(routes::api::router())
         .merge(routes::web::router())
         .with_state(state)

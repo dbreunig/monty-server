@@ -13,7 +13,7 @@ async fn test_pool() -> SqlitePool {
 #[tokio::test]
 async fn create_returns_plaintext_once_and_hash_verifies() {
     let pool = test_pool().await;
-    let user = User::upsert(&pool, 1, "u", None).await.unwrap();
+    let user = User::upsert_github(&pool, 1, "u", None).await.unwrap();
 
     let (_key, plaintext) = ApiKey::create(&pool, user.id, "laptop").await.unwrap();
     assert!(plaintext.starts_with("mk_"));
@@ -33,8 +33,8 @@ async fn create_returns_plaintext_once_and_hash_verifies() {
 #[tokio::test]
 async fn list_for_user_returns_only_own_keys() {
     let pool = test_pool().await;
-    let alice = User::upsert(&pool, 1, "alice", None).await.unwrap();
-    let bob = User::upsert(&pool, 2, "bob", None).await.unwrap();
+    let alice = User::upsert_github(&pool, 1, "alice", None).await.unwrap();
+    let bob = User::upsert_github(&pool, 2, "bob", None).await.unwrap();
     ApiKey::create(&pool, alice.id, "a1").await.unwrap();
     ApiKey::create(&pool, alice.id, "a2").await.unwrap();
     ApiKey::create(&pool, bob.id, "b1").await.unwrap();
@@ -48,8 +48,8 @@ async fn list_for_user_returns_only_own_keys() {
 #[tokio::test]
 async fn delete_removes_key_and_enforces_ownership() {
     let pool = test_pool().await;
-    let alice = User::upsert(&pool, 1, "alice", None).await.unwrap();
-    let bob = User::upsert(&pool, 2, "bob", None).await.unwrap();
+    let alice = User::upsert_github(&pool, 1, "alice", None).await.unwrap();
+    let bob = User::upsert_github(&pool, 2, "bob", None).await.unwrap();
     let (alice_key, _) = ApiKey::create(&pool, alice.id, "a1").await.unwrap();
 
     // Bob cannot delete Alice's key

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Environments — {{ user.github_login }}{% endblock %}
+{% block title %}Environments — {{ user.display_name() }}{% endblock %}
 {% block content %}
 <h1>Environments</h1>
 <p><a href="/dashboard">← Dashboard</a></p>

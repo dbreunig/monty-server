@@ -18,7 +18,8 @@ async fn body_bytes(res: axum::response::Response) -> Vec<u8> {
 
 async fn setup() -> (TestApp, String, String) {
     let app = TestApp::new().await;
-    let user = User::upsert(&app.pool, 1, "u", None).await.unwrap();
+    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
     let (_, token) = ApiKey::create(&app.pool, user.id, "t").await.unwrap();
     let res = app
         .router
@@ -148,7 +149,8 @@ async fn path_traversal_in_filename_is_rejected() {
 #[tokio::test]
 async fn cannot_touch_other_users_env_files() {
     let (app, _alice_token, env_id) = setup().await;
-    let bob = User::upsert(&app.pool, 2, "bob", None).await.unwrap();
+    let bob = User::upsert_github(&app.pool, 2, "bob", None).await.unwrap();
+    User::approve(&app.pool, bob.id).await.unwrap();
     let (_, bob_token) = ApiKey::create(&app.pool, bob.id, "t").await.unwrap();
 
     let res = app

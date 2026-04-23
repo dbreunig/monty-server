@@ -9,7 +9,7 @@ use axum::Router;
 use serde::Deserialize;
 
 use crate::AppState;
-use crate::auth::middleware::SessionUser;
+use crate::auth::middleware::{ApprovedSessionUser, SessionUser};
 use crate::envs::executor::EnvExecutor;
 use crate::envs::storage::FileEntry;
 use crate::error::AppResult;
@@ -86,7 +86,11 @@ async fn dashboard(
     State(state): State<AppState>,
     SessionUser(user): SessionUser,
 ) -> AppResult<Response> {
-    let api_keys = ApiKey::list_for_user(&state.pool, user.id).await?;
+    let api_keys = if user.is_approved() {
+        ApiKey::list_for_user(&state.pool, user.id).await?
+    } else {
+        Vec::new()
+    };
     Ok(DashboardTemplate {
         user,
         api_keys,
@@ -101,7 +105,7 @@ struct CreateApiKeyForm {
 }
 
 async fn create_api_key(
-    SessionUser(user): SessionUser,
+    ApprovedSessionUser(user): ApprovedSessionUser,
     State(state): State<AppState>,
     Form(form): Form<CreateApiKeyForm>,
 ) -> AppResult<Response> {
@@ -115,7 +119,7 @@ async fn create_api_key(
 }
 
 async fn delete_api_key(
-    SessionUser(user): SessionUser,
+    ApprovedSessionUser(user): ApprovedSessionUser,
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> AppResult<Response> {
@@ -129,7 +133,7 @@ async fn delete_api_key(
 }
 
 async fn env_list(
-    SessionUser(user): SessionUser,
+    ApprovedSessionUser(user): ApprovedSessionUser,
     State(state): State<AppState>,
 ) -> AppResult<Response> {
     let envs = Env::list_for_user(&state.pool, user.id).await?;
@@ -142,7 +146,7 @@ struct CreateEnvForm {
 }
 
 async fn create_env_ui(
-    SessionUser(user): SessionUser,
+    ApprovedSessionUser(user): ApprovedSessionUser,
     State(state): State<AppState>,
     Form(form): Form<CreateEnvForm>,
 ) -> AppResult<Response> {
@@ -156,7 +160,7 @@ async fn create_env_ui(
 }
 
 async fn delete_env_ui(
-    SessionUser(user): SessionUser,
+    ApprovedSessionUser(user): ApprovedSessionUser,
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> AppResult<Response> {
@@ -168,7 +172,7 @@ async fn delete_env_ui(
 }
 
 async fn env_detail(
-    SessionUser(user): SessionUser,
+    ApprovedSessionUser(user): ApprovedSessionUser,
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> AppResult<Response> {
@@ -186,7 +190,7 @@ struct ReplForm {
 }
 
 async fn repl(
-    SessionUser(user): SessionUser,
+    ApprovedSessionUser(user): ApprovedSessionUser,
     State(state): State<AppState>,
     Path(id): Path<String>,
     Form(form): Form<ReplForm>,
@@ -206,7 +210,7 @@ async fn repl(
 }
 
 async fn upload_file_ui(
-    SessionUser(user): SessionUser,
+    ApprovedSessionUser(user): ApprovedSessionUser,
     State(state): State<AppState>,
     Path(id): Path<String>,
     mut multipart: Multipart,
@@ -237,7 +241,7 @@ async fn upload_file_ui(
 }
 
 async fn delete_file_ui(
-    SessionUser(user): SessionUser,
+    ApprovedSessionUser(user): ApprovedSessionUser,
     State(state): State<AppState>,
     Path((id, name)): Path<(String, String)>,
 ) -> AppResult<Response> {

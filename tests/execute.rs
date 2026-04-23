@@ -13,7 +13,8 @@ async fn body_json(res: axum::response::Response) -> Value {
 }
 
 async fn make_user_with_token(app: &TestApp) -> (User, String) {
-    let user = User::upsert(&app.pool, 1, "u", None).await.unwrap();
+    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
     let (_, token) = ApiKey::create(&app.pool, user.id, "t").await.unwrap();
     (user, token)
 }
@@ -110,7 +111,8 @@ async fn execute_on_someone_elses_env_is_404() {
     let (_alice, alice_token) = make_user_with_token(&app).await;
     let env_id = create_env(&app, &alice_token, "alice").await;
 
-    let bob = User::upsert(&app.pool, 2, "bob", None).await.unwrap();
+    let bob = User::upsert_github(&app.pool, 2, "bob", None).await.unwrap();
+    User::approve(&app.pool, bob.id).await.unwrap();
     let (_, bob_token) = ApiKey::create(&app.pool, bob.id, "t").await.unwrap();
 
     let r = app

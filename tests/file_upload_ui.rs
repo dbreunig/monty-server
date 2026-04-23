@@ -30,7 +30,8 @@ fn multipart_body(boundary: &str, filename: &str, content: &[u8]) -> Vec<u8> {
 #[tokio::test]
 async fn ui_upload_adds_file_and_returns_updated_list() {
     let app = TestApp::new().await;
-    let user = User::upsert(&app.pool, 1, "u", None).await.unwrap();
+    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
     let cookie = app.sign_in(user.id).await;
     let env = Env::create(&app.pool, user.id, "scratch").await.unwrap();
     EnvStorage::new(app.tmp.path()).create(&env.id).await.unwrap();

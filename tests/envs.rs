@@ -13,7 +13,8 @@ async fn body_json(res: axum::response::Response) -> Value {
 }
 
 async fn make_user_with_token(app: &TestApp, github_id: i64, name: &str) -> (User, String) {
-    let user = User::upsert(&app.pool, github_id, name, None).await.unwrap();
+    let user = User::upsert_github(&app.pool, github_id, name, None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
     let (_, token) = ApiKey::create(&app.pool, user.id, "t").await.unwrap();
     (user, token)
 }

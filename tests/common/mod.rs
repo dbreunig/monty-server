@@ -1,4 +1,5 @@
 use axum::Router;
+use monty_server::models::User;
 use monty_server::{Config, app_with_pool, db};
 use sqlx::SqlitePool;
 use std::sync::Arc;
@@ -31,6 +32,17 @@ impl TestApp {
         let pool = db::connect(":memory:").await.unwrap();
         let router = app_with_pool(config, pool.clone()).await.unwrap();
         Self { router, pool, tmp }
+    }
+
+    /// Upserts a GitHub user and approves them. Convenience for tests that
+    /// exercise gated routes.
+    #[allow(dead_code)]
+    pub async fn make_approved_user(&self, github_id: i64, login: &str) -> User {
+        let user = User::upsert_github(&self.pool, github_id, login, None)
+            .await
+            .unwrap();
+        User::approve(&self.pool, user.id).await.unwrap();
+        User::find_by_id(&self.pool, user.id).await.unwrap().unwrap()
     }
 
     /// Creates a session via the tower-sessions `Session` API (so the record
