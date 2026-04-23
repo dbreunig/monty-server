@@ -11,6 +11,8 @@ pub mod models;
 pub mod routes;
 
 pub use config::Config;
+use envs::executor::MontyExecutor;
+use envs::locks::LockRegistry;
 use envs::storage::EnvStorage;
 
 #[derive(Clone)]
@@ -18,6 +20,7 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub pool: SqlitePool,
     pub env_storage: EnvStorage,
+    pub executor: Arc<MontyExecutor>,
 }
 
 pub async fn app(config: Config) -> anyhow::Result<Router> {
@@ -39,10 +42,13 @@ pub async fn app_with_pool(config: Config, pool: SqlitePool) -> anyhow::Result<R
 async fn build(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
     let session_layer = auth::session::install(pool.clone()).await?;
     let env_storage = EnvStorage::new(&config.data_dir);
+    let locks = LockRegistry::new();
+    let executor = Arc::new(MontyExecutor::new(env_storage.clone(), locks));
     let state = AppState {
         config: Arc::new(config),
         pool,
         env_storage,
+        executor,
     };
     let router = Router::new()
         .route("/health", get(health))

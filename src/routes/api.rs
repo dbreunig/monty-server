@@ -1,12 +1,13 @@
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{delete, get};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
 
 use crate::AppState;
 use crate::auth::middleware::BearerUser;
+use crate::envs::executor::{EnvExecutor, ExecOutput};
 use crate::error::AppResult;
 use crate::models::Env;
 
@@ -14,6 +15,8 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/v1/envs", get(list_envs).post(create_env))
         .route("/api/v1/envs/:id", delete(delete_env))
+        .route("/api/v1/envs/:id/execute", post(execute_in_env))
+        .route("/api/v1/execute", post(execute_one_off))
 }
 
 async fn list_envs(
@@ -59,12 +62,30 @@ async fn delete_env(
     Ok((StatusCode::OK, "deleted").into_response())
 }
 
-// Not all routes use the helper yet; re-expose for execute endpoints in task 13.
-#[allow(dead_code)]
-pub(crate) async fn authorize_env(
-    state: &AppState,
-    user_id: i64,
-    id: &str,
-) -> AppResult<Option<Env>> {
-    Ok(Env::find_for_user(&state.pool, user_id, id).await?)
+#[derive(Deserialize)]
+pub struct ExecuteBody {
+    pub code: String,
+}
+
+async fn execute_in_env(
+    State(state): State<AppState>,
+    BearerUser(user): BearerUser,
+    Path(id): Path<String>,
+    Json(body): Json<ExecuteBody>,
+) -> AppResult<Response> {
+    let Some(_env) = Env::find_for_user(&state.pool, user.id, &id).await? else {
+        return Ok((StatusCode::NOT_FOUND, "not found").into_response());
+    };
+    let output: ExecOutput = state.executor.execute(&id, &body.code).await?;
+    Env::touch(&state.pool, &id).await?;
+    Ok(Json(output).into_response())
+}
+
+async fn execute_one_off(
+    State(state): State<AppState>,
+    BearerUser(_user): BearerUser,
+    Json(body): Json<ExecuteBody>,
+) -> AppResult<Response> {
+    let output = state.executor.execute_one_off(&body.code).await?;
+    Ok(Json(output).into_response())
 }
