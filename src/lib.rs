@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 pub mod config;
 pub mod db;
+pub mod models;
 
 pub use config::Config;
 
