@@ -50,6 +50,36 @@ impl FunctionExecutor {
         .context("spawn_blocking panicked")??;
         Ok(CallOutcome { duration_ms: started.elapsed().as_millis() as u64, ..outcome })
     }
+
+    pub async fn call_bound(
+        &self,
+        env_id: &str,
+        code: &str,
+        _sig: &HandlerSignature,
+        kwargs: Map<String, Value>,
+    ) -> Result<CallOutcome> {
+        let _guard = self.locks.acquire(env_id).await;
+        let bytes = self.storage.read_snapshot(env_id).await.context("read snapshot")?;
+        let files_dir = self.storage.files_dir(env_id)?;
+        let limits = self.limits.clone();
+        let code = code.to_string();
+        let started = Instant::now();
+        let outcome = tokio::task::spawn_blocking(move || {
+            let repl = if bytes.is_empty() {
+                MontyRepl::new("<fn-bound>", limits.tracker())
+            } else {
+                let mut loaded: MontyRepl<LimitedTracker> =
+                    MontyRepl::load(&bytes).context("load snapshot")?;
+                *loaded.tracker_mut() = limits.tracker();
+                loaded
+            };
+            // Note: we do NOT dump the REPL after running — env is read-only template.
+            run_handler(repl, &code, &kwargs, &files_dir, &limits)
+        })
+        .await
+        .context("spawn_blocking panicked")??;
+        Ok(CallOutcome { duration_ms: started.elapsed().as_millis() as u64, ..outcome })
+    }
 }
 
 fn run_handler(
