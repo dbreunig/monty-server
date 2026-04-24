@@ -14,7 +14,7 @@ use crate::envs::executor::EnvExecutor;
 use crate::error::AppResult;
 use crate::functions::signature::parse_handler;
 use crate::models::function::validate_slug;
-use crate::models::{ApiKey, Env, Function, ReplCall, User};
+use crate::models::{ApiKey, Env, Function, FunctionCall, ReplCall, User};
 
 const MAX_UI_UPLOAD_BYTES: usize = 50 * 1024 * 1024;
 
@@ -33,6 +33,8 @@ pub fn router() -> Router<AppState> {
         )
         .route("/functions", post(create_function_ui))
         .route("/functions/:id/delete", post(delete_function_ui))
+        .route("/functions/:id", get(function_detail).post(update_function_ui))
+        .route("/functions/:id/rotate", post(rotate_public_token_ui))
 }
 
 #[derive(Template)]
@@ -528,4 +530,98 @@ async fn delete_function_ui(
 ) -> AppResult<Response> {
     Function::delete_for_user(&state.pool, user.id, &id).await?;
     Ok(Redirect::to("/dashboard").into_response())
+}
+
+#[derive(Template)]
+#[template(path = "function_detail.html")]
+struct FunctionDetailTemplate {
+    user: User,
+    function: Function,
+    calls: Vec<FunctionCall>,
+    error_message: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct FunctionDetailQuery {
+    #[serde(default)]
+    error: Option<String>,
+}
+
+fn function_error_redirect(id: &str, msg: &str) -> Response {
+    let encoded = percent_encode_query(msg);
+    Redirect::to(&format!("/functions/{id}?error={encoded}")).into_response()
+}
+
+async fn function_detail(
+    ApprovedSessionUser(user): ApprovedSessionUser,
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Query(q): Query<FunctionDetailQuery>,
+) -> AppResult<Response> {
+    let Some(function) = Function::find_for_user(&state.pool, user.id, &id).await? else {
+        return Ok((StatusCode::NOT_FOUND, "not found").into_response());
+    };
+    let calls = FunctionCall::list_recent(&state.pool, &function.id, 100).await?;
+    Ok(FunctionDetailTemplate {
+        user,
+        function,
+        calls,
+        error_message: q.error,
+    }
+    .into_response())
+}
+
+#[derive(Deserialize)]
+struct UpdateFunctionForm {
+    code: String,
+    #[serde(default)]
+    is_public: Option<String>,
+    #[serde(default)]
+    truncate_logs: Option<String>,
+}
+
+async fn update_function_ui(
+    ApprovedSessionUser(user): ApprovedSessionUser,
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Form(form): Form<UpdateFunctionForm>,
+) -> AppResult<Response> {
+    // Ownership check — 404 if the function isn't the caller's.
+    let Some(_function) = Function::find_for_user(&state.pool, user.id, &id).await? else {
+        return Ok((StatusCode::NOT_FOUND, "not found").into_response());
+    };
+
+    // Validate code.
+    if let Err(e) = parse_handler(&form.code) {
+        return Ok(function_error_redirect(
+            &id,
+            &format!("invalid code: {e}"),
+        ));
+    }
+
+    let is_public = form.is_public.is_some();
+    let truncate_logs = form.truncate_logs.is_some();
+
+    Function::update_code(&state.pool, &id, &form.code).await?;
+    Function::set_public(&state.pool, &id, is_public).await?;
+    Function::set_truncate_logs(&state.pool, &id, truncate_logs).await?;
+
+    Ok(Redirect::to(&format!("/functions/{id}")).into_response())
+}
+
+async fn rotate_public_token_ui(
+    ApprovedSessionUser(user): ApprovedSessionUser,
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> AppResult<Response> {
+    let Some(_function) = Function::find_for_user(&state.pool, user.id, &id).await? else {
+        return Ok((StatusCode::NOT_FOUND, "not found").into_response());
+    };
+    if let Err(e) = Function::rotate_public_token(&state.pool, &id).await {
+        return Ok(function_error_redirect(
+            &id,
+            &format!("could not rotate public URL: {e}"),
+        ));
+    }
+    Ok(Redirect::to(&format!("/functions/{id}")).into_response())
 }

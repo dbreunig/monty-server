@@ -1,0 +1,58 @@
+<div id="function-calls">
+{% if calls.is_empty() %}
+<div class="empty-state">No calls yet.</div>
+{% else %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Status</th>
+            <th>Duration</th>
+            <th>When</th>
+            <th>Request / Response</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for call in calls %}
+        <tr>
+            <td>
+                {% if call.status >= 500 %}
+                <span class="badge badge-status-5xx">{{ call.status }}</span>
+                {% else if call.status >= 400 %}
+                <span class="badge badge-status-4xx">{{ call.status }}</span>
+                {% else if call.status >= 200 %}
+                <span class="badge badge-status-2xx">{{ call.status }}</span>
+                {% else %}
+                <span class="badge">{{ call.status }}</span>
+                {% endif %}
+            </td>
+            <td class="muted">{{ call.duration_ms }} ms</td>
+            <td class="muted">{{ call.created_at }}</td>
+            <td>
+                <details class="call-details">
+                    <summary>view</summary>
+                    {% if let Some(req) = call.request_body.as_ref() %}
+                    <div class="call-block">
+                        <div class="call-label">Request</div>
+                        <pre>{{ req }}</pre>
+                    </div>
+                    {% endif %}
+                    {% if let Some(resp) = call.response_body.as_ref() %}
+                    <div class="call-block">
+                        <div class="call-label">Response</div>
+                        <pre>{{ resp }}</pre>
+                    </div>
+                    {% endif %}
+                    {% if let Some(err) = call.error.as_ref() %}
+                    <div class="call-block">
+                        <div class="call-label">Error</div>
+                        <pre class="stderr">{{ err }}</pre>
+                    </div>
+                    {% endif %}
+                </details>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+</div>
