@@ -145,7 +145,7 @@ impl Function {
             r#"
             SELECT id, user_id, slug, code, mode, env_id, is_public, public_token,
                    truncate_logs, created_at, updated_at
-            FROM functions WHERE public_token = ? AND is_public = 1
+            FROM functions WHERE public_token = ?
             "#,
         )
         .bind(token)
