@@ -69,6 +69,7 @@ async fn build(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
         .merge(auth::router())
         .merge(routes::admin::router())
         .merge(routes::api::router())
+        .merge(routes::functions::router())
         .merge(routes::web::router())
         .with_state(state)
         .nest_service("/static", ServeDir::new(static_dir))
