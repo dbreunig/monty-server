@@ -16,6 +16,7 @@ pub use config::Config;
 use envs::executor::MontyExecutor;
 use envs::locks::LockRegistry;
 use envs::storage::EnvStorage;
+use functions::executor::FunctionExecutor;
 use models::User;
 
 #[derive(Clone)]
@@ -24,6 +25,7 @@ pub struct AppState {
     pub pool: SqlitePool,
     pub env_storage: EnvStorage,
     pub executor: Arc<MontyExecutor>,
+    pub fn_executor: Arc<FunctionExecutor>,
 }
 
 pub async fn app(config: Config) -> anyhow::Result<Router> {
@@ -46,7 +48,8 @@ async fn build(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
     let session_layer = auth::session::install(pool.clone()).await?;
     let env_storage = EnvStorage::new(&config.data_dir);
     let locks = LockRegistry::new();
-    let executor = Arc::new(MontyExecutor::new(env_storage.clone(), locks));
+    let executor = Arc::new(MontyExecutor::new(env_storage.clone(), locks.clone()));
+    let fn_executor = Arc::new(FunctionExecutor::new(env_storage.clone(), locks));
     if let (Some(email), Some(password)) = (&config.admin_email, &config.admin_password) {
         User::ensure_admin(&pool, email, password).await?;
         tracing::info!(admin_email = %email, "admin user seeded");
@@ -56,6 +59,7 @@ async fn build(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
         pool,
         env_storage,
         executor,
+        fn_executor,
     };
     let assets_dir = std::env::var("ASSETS_DIR").unwrap_or_else(|_| ".".to_string());
     let static_dir = std::path::PathBuf::from(&assets_dir).join("static");
