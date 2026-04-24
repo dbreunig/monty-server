@@ -180,6 +180,17 @@ impl Function {
         Ok(())
     }
 
+    pub async fn set_truncate_logs(pool: &SqlitePool, id: &str, value: bool) -> Result<()> {
+        sqlx::query(
+            "UPDATE functions SET truncate_logs = ?, updated_at = datetime('now') WHERE id = ?",
+        )
+        .bind(value)
+        .bind(id)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
     /// Toggles `is_public`. When flipping 0->1, mints a fresh token; when
     /// flipping 1->0, clears the token. No-op (no token rotation) if already
     /// in the target state.
