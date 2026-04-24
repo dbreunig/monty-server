@@ -1,12 +1,14 @@
 use axum::{Router, extract::State, routing::get};
 use sqlx::SqlitePool;
 use std::sync::Arc;
+use tower_http::services::ServeDir;
 
 pub mod auth;
 pub mod config;
 pub mod db;
 pub mod envs;
 pub mod error;
+pub mod functions;
 pub mod models;
 pub mod routes;
 
@@ -55,6 +57,9 @@ async fn build(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
         env_storage,
         executor,
     };
+    let assets_dir = std::env::var("ASSETS_DIR").unwrap_or_else(|_| ".".to_string());
+    let static_dir = std::path::PathBuf::from(&assets_dir).join("static");
+    let plex_dir = std::path::PathBuf::from(&assets_dir).join("ibm-plex-sans");
     let router = Router::new()
         .route("/health", get(health))
         .merge(auth::router())
@@ -62,6 +67,8 @@ async fn build(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
         .merge(routes::api::router())
         .merge(routes::web::router())
         .with_state(state)
+        .nest_service("/static", ServeDir::new(static_dir))
+        .nest_service("/ibm-plex-sans", ServeDir::new(plex_dir))
         .layer(session_layer);
     Ok(router)
 }
