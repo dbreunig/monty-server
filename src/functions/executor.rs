@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use monty::{
-    ExtFunctionResult, LimitedTracker, MontyObject, MontyRepl, PrintStream, PrintWriter,
-    ReplProgress, ReplStartError,
+    ExtFunctionResult, JsonMontyObject, LimitedTracker, MontyObject, MontyRepl, PrintStream,
+    PrintWriter, ReplProgress, ReplStartError,
 };
 use monty::fs::{MountMode, MountTable};
 use serde::Serialize;
@@ -59,13 +59,17 @@ fn run_handler(
     files_dir: &PathBuf,
     limits: &ExecLimits,
 ) -> Result<CallOutcome> {
-    use base64::Engine;
     let kwargs_json = serde_json::to_string(kwargs).unwrap();
-    let b64 = base64::engine::general_purpose::STANDARD.encode(kwargs_json.as_bytes());
+    // Embed the JSON as a Python single-quoted string literal. `serde_json`'s
+    // compact form has no literal newlines, so we only need to escape `\` and
+    // `'` to make it a valid Python string that round-trips back through
+    // `json.loads`. Monty does not ship a `base64` module, so we pass the JSON
+    // text directly rather than base64-encoding it host-side.
+    let py_literal = kwargs_json.replace('\\', "\\\\").replace('\'', "\\'");
     let combined = format!(
         "{code}\n\
-         import json, base64\n\
-         __mk_kwargs = json.loads(base64.b64decode('{b64}').decode('utf-8'))\n\
+         import json\n\
+         __mk_kwargs = json.loads('{py_literal}')\n\
          __result = handler(**__mk_kwargs)\n\
          __result\n"
     );
@@ -157,7 +161,60 @@ fn drive(
     }
 }
 
-fn monty_object_to_json(_obj: &MontyObject) -> Result<String> {
-    // Placeholder: serialize via Debug for v1; Task 9b replaces with real conversion.
-    Ok(format!("{_obj:?}"))
+/// Serialize a handler's return value to the JSON form monty-server sends on the wire.
+///
+/// Uses Monty's [`JsonMontyObject`] wrapper, which maps JSON-native Python values
+/// to their natural JSON (e.g. `Int(42)` → `42`, `String("hi")` → `"hi"`) and
+/// tags non-JSON-native variants (tuple, bytes, exception, etc.) with a
+/// `$`-prefixed key. This matches what a caller of the HTTP endpoint expects.
+fn monty_object_to_json(obj: &MontyObject) -> Result<String> {
+    serde_json::to_string(&JsonMontyObject(obj)).context("serialize handler return value")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::envs::locks::LockRegistry;
+    use crate::envs::storage::EnvStorage;
+    use crate::functions::signature::parse_handler;
+
+    #[tokio::test]
+    async fn stateless_round_trips_json() {
+        let tmp = tempfile::tempdir().unwrap();
+        let storage = EnvStorage::new(tmp.path());
+        let exec = FunctionExecutor::new(storage, LockRegistry::new());
+        let code = "def handler(x: int) -> int:\n    return x * 2\n";
+        let sig = parse_handler(code).unwrap();
+        let mut kw = serde_json::Map::new();
+        kw.insert("x".into(), serde_json::json!(21));
+        let out = exec.call_stateless(code, &sig, kw).await.unwrap();
+        assert_eq!(out.status, 200, "error: {:?}", out.error);
+        assert_eq!(out.response_json.unwrap(), "42");
+    }
+
+    #[tokio::test]
+    async fn stateless_json_string_is_quoted() {
+        let tmp = tempfile::tempdir().unwrap();
+        let storage = EnvStorage::new(tmp.path());
+        let exec = FunctionExecutor::new(storage, LockRegistry::new());
+        let code = "def handler(name: str) -> str:\n    return 'hi ' + name\n";
+        let sig = parse_handler(code).unwrap();
+        let mut kw = serde_json::Map::new();
+        kw.insert("name".into(), serde_json::json!("drew"));
+        let out = exec.call_stateless(code, &sig, kw).await.unwrap();
+        assert_eq!(out.status, 200);
+        assert_eq!(out.response_json.unwrap(), "\"hi drew\"");
+    }
+
+    #[tokio::test]
+    async fn stateless_json_list_is_array() {
+        let tmp = tempfile::tempdir().unwrap();
+        let storage = EnvStorage::new(tmp.path());
+        let exec = FunctionExecutor::new(storage, LockRegistry::new());
+        let code = "def handler() -> list:\n    return [1, 2, 3]\n";
+        let sig = parse_handler(code).unwrap();
+        let out = exec.call_stateless(code, &sig, serde_json::Map::new()).await.unwrap();
+        assert_eq!(out.status, 200);
+        assert_eq!(out.response_json.unwrap(), "[1,2,3]");
+    }
 }
