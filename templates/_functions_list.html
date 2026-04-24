@@ -1,0 +1,38 @@
+<div id="functions-list">
+{% if functions.is_empty() %}
+<div class="empty-state">No functions yet.</div>
+{% else %}
+<table class="data-table">
+    <thead><tr><th>Slug</th><th>Mode</th><th>URL</th><th>Updated</th><th></th></tr></thead>
+    <tbody>
+        {% for function in functions %}
+        <tr data-href="/functions/{{ function.id }}">
+            <td><a href="/functions/{{ function.id }}">{{ function.slug }}</a></td>
+            <td>
+                <span class="badge badge-{{ function.mode }}">{{ function.mode }}</span>
+                {% if function.is_public %}<span class="badge badge-public">public</span>{% endif %}
+            </td>
+            <td>
+                {% if function.is_public %}
+                    {% if let Some(token) = function.public_token.as_ref() %}
+                    <code class="inline" data-copy="/fn/p/{{ token }}">/fn/p/{{ token }}</code>
+                    {% else %}
+                    <code class="inline">/fn/{{ function.slug }}</code>
+                    {% endif %}
+                {% else %}
+                <code class="inline" data-copy="/fn/{{ function.slug }}">/fn/{{ function.slug }}</code>
+                {% endif %}
+            </td>
+            <td class="muted">{{ function.updated_at }}</td>
+            <td class="actions">
+                <form method="post" action="/functions/{{ function.id }}/delete"
+                      onsubmit="return confirm('Delete {{ function.slug }}?');">
+                    <button type="submit" class="btn-danger btn-sm">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+</div>

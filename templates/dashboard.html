@@ -1,32 +1,89 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — {{ user.display_name() }}{% endblock %}
-{% block content %}
-<h1>Dashboard</h1>
-<p>Signed in as <strong>{{ user.display_name() }}</strong>.
-   {% if user.is_admin %}<a href="/admin">Admin panel →</a>{% endif %}
-</p>
+{% block body %}
+<div class="page">
+    <div class="pagebar">
+        <nav class="crumbs">
+            <span class="crumb-current">Dashboard</span>
+        </nav>
+        <div class="pagebar-actions">
+            {% if user.is_admin %}<a class="pagebar-link" href="/admin">Admin</a>{% endif %}
+            <form method="post" action="/auth/logout">
+                <button type="submit" class="pagebar-btn">Sign out</button>
+            </form>
+        </div>
+    </div>
 
-{% if !user.is_approved() %}
-<div style="border:1px solid #b00;padding:1rem;border-radius:4px;background:#fee">
-    <strong>Your account is pending administrator approval.</strong>
-    You'll be able to create API keys and environments once an admin approves you.
+    {% if !user.is_approved() %}
+    <div class="alert alert-warning">
+        <strong>Your account is pending administrator approval.</strong>
+        You'll be able to create API keys and environments once an admin approves you.
+    </div>
+    {% else %}
+
+    {% if let Some(err) = error_message %}
+    <div class="alert alert-warning">
+        <strong>Error:</strong> {{ err }}
+    </div>
+    {% endif %}
+
+    <section class="section">
+        <div class="section-header">
+            <h2>API keys</h2>
+            <span class="count">{{ api_keys.len() }}</span>
+        </div>
+        <form class="creator-row" hx-post="/api-keys" hx-target="#api-keys" hx-swap="outerHTML">
+            <input type="text" name="name" placeholder="Name for the new API key" required>
+            <button type="submit" class="btn-primary">Create API key</button>
+        </form>
+        <div id="api-keys">{% include "_api_keys.html" %}</div>
+    </section>
+
+    <section class="section">
+        <div class="section-header">
+            <h2>Environments</h2>
+            <span class="count">{{ envs.len() }}</span>
+        </div>
+        <form class="creator-row" hx-post="/envs" hx-target="#env-list" hx-swap="outerHTML">
+            <input type="text" name="name" placeholder="Name for the new environment" required>
+            <button type="submit" class="btn-primary">Create environment</button>
+        </form>
+        <div id="env-list">{% include "_env_list.html" %}</div>
+    </section>
+
+    <section class="section">
+        <div class="section-header">
+            <h2>Functions</h2>
+            <span class="count">{{ functions.len() }}</span>
+        </div>
+        <form class="creator-stack" method="post" action="/functions">
+            <div class="creator-row">
+                <input type="text" name="slug" placeholder="function-slug" required>
+                <label class="radio">
+                    <input type="radio" name="mode" value="stateless" checked> stateless
+                </label>
+                <label class="radio">
+                    <input type="radio" name="mode" value="bound"> bound
+                </label>
+                <select name="env_id">
+                    <option value="">— no env —</option>
+                    {% for env in envs %}
+                    <option value="{{ env.id }}">{{ env.name }}</option>
+                    {% endfor %}
+                </select>
+                <label class="checkbox">
+                    <input type="checkbox" name="is_public" value="on"> public
+                </label>
+            </div>
+            <textarea name="code" rows="6"
+                placeholder="def handler(name: str) -> dict:&#10;    return {&quot;hello&quot;: name}" required></textarea>
+            <div class="creator-row">
+                <button type="submit" class="btn-primary">Create function</button>
+            </div>
+        </form>
+        <div id="functions-list">{% include "_functions_list.html" %}</div>
+    </section>
+
+    {% endif %}
 </div>
-{% else %}
-
-<h2>API keys</h2>
-<div id="api-keys">{% include "_api_keys.html" %}</div>
-
-<form hx-post="/api-keys" hx-target="#api-keys" hx-swap="outerHTML">
-    <label>Name: <input type="text" name="name" required></label>
-    <button type="submit">Create API key</button>
-</form>
-
-<h2>Environments</h2>
-<p><a href="/envs">Manage environments →</a></p>
-
-{% endif %}
-
-<p><form method="post" action="/auth/logout" style="display:inline">
-    <button type="submit">Sign out</button>
-</form></p>
 {% endblock %}
