@@ -34,7 +34,7 @@ impl Default for ExecLimits {
 }
 
 impl ExecLimits {
-    fn tracker(&self) -> LimitedTracker {
+    pub(crate) fn tracker(&self) -> LimitedTracker {
         LimitedTracker::new(
             ResourceLimits::new()
                 .max_memory(self.max_memory_bytes as usize)
