@@ -64,6 +64,58 @@ via the dashboard at `/dashboard`.
 | `GET /api/v1/envs/:id/files` | List files in an env |
 | `GET /api/v1/envs/:id/files/:name` | Download a file |
 | `DELETE /api/v1/envs/:id/files/:name` | Delete a file |
+| `POST /api/v1/functions` | Create a function. Body: `{slug, code, mode, env_id?, is_public?, truncate_logs?}` |
+| `GET /api/v1/functions` | List your functions |
+| `PATCH /api/v1/functions/:id` | Update a function (`code`, `is_public`, `truncate_logs`) |
+| `POST /api/v1/functions/:id/rotate` | Rotate the public URL |
+| `DELETE /api/v1/functions/:id` | Delete a function |
+| `POST /fn/:slug` | Call your function (bearer) |
+| `POST /fn/p/:token` | Call a public function (no auth) |
+
+## Functions
+
+A **function** is a saved Python snippet with a top-level `def handler(...)` that
+you invoke over HTTP. The JSON request body is bound to the handler's kwargs,
+and whatever the handler returns is JSON-encoded back to the caller.
+
+Type annotations on the handler drive request validation. Supported types are
+`str`, `int`, `float`, `bool`, `list`, `dict`, and `None`. Missing keys,
+extra keys, or type mismatches return `400` with a schema description of the
+expected body.
+
+Each function runs in one of two modes:
+
+- **stateless** — a fresh interpreter per call. Fastest; nothing persists.
+- **bound** — runs against an env's serialized heap with the env's `/mnt`
+  files mounted read-only. The handler sees the env's state, but mutations
+  made during the call are discarded (the env itself isn't modified).
+
+Functions are private by default: callers must present a bearer token via
+`POST /fn/:slug`. Flipping the `is_public` flag mints an unguessable token and
+exposes `POST /fn/p/:token`, which anyone can hit without auth. `POST
+/api/v1/functions/:id/rotate` mints a new token and invalidates the old URL.
+
+Every invocation is recorded in the `function_calls` table with status,
+latency, and request/response bodies. Bodies are capped at 4 KB by default;
+set `truncate_logs: false` on a function to store them untruncated.
+
+```bash
+# Create
+curl -X POST http://localhost:3000/api/v1/functions \
+  -H "Authorization: Bearer mk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "slug": "summarize",
+    "mode": "stateless",
+    "code": "def handler(text: str, max_words: int) -> dict:\n    return {\"out\": text[:max_words * 5]}\n"
+  }'
+
+# Call
+curl -X POST http://localhost:3000/fn/summarize \
+  -H "Authorization: Bearer mk_..." \
+  -H "Content-Type: application/json" \
+  -d '{"text": "...", "max_words": 50}'
+```
 
 ## Authentication
 
