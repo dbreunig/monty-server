@@ -20,7 +20,6 @@ pub fn router() -> Router<AppState> {
 #[derive(Template)]
 #[template(path = "admin.html")]
 struct AdminTemplate {
-    admin: User,
     pending: Vec<User>,
 }
 
@@ -32,10 +31,10 @@ struct PendingFragment {
 
 async fn index(
     State(state): State<AppState>,
-    AdminUser(admin): AdminUser,
+    AdminUser(_admin): AdminUser,
 ) -> AppResult<Response> {
     let pending = User::list_pending(&state.pool).await?;
-    Ok(AdminTemplate { admin, pending }.into_response())
+    Ok(AdminTemplate { pending }.into_response())
 }
 
 async fn approve(

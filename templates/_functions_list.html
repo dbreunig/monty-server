@@ -25,6 +25,7 @@
             </td>
             <td class="muted">{{ function.updated_at }}</td>
             <td class="actions">
+                <button type="button" class="btn-secondary btn-sm" data-copy="{{ function.curl_command }}">Copy cURL</button>
                 <form method="post" action="/functions/{{ function.id }}/delete"
                       onsubmit="return confirm('Delete {{ function.slug }}?');">
                     <button type="submit" class="btn-danger btn-sm">Delete</button>

@@ -1723,6 +1723,7 @@ dependencies = [
 [[package]]
 name = "monty"
 version = "0.0.17"
+source = "git+https://github.com/pydantic/monty?rev=33e47c64dcb915f32932d647d853d1cb9a24a1b9#33e47c64dcb915f32932d647d853d1cb9a24a1b9"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1761,6 +1762,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dashmap",
+ "dotenvy",
  "http-body-util",
  "monty",
  "oauth2",

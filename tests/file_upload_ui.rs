@@ -28,6 +28,101 @@ fn multipart_body(boundary: &str, filename: &str, content: &[u8]) -> Vec<u8> {
 }
 
 #[tokio::test]
+async fn ui_lists_folders_and_descends_into_subdir() {
+    let app = TestApp::new().await;
+    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
+    let cookie = app.sign_in(user.id).await;
+    let env = Env::create(&app.pool, user.id, "scratch").await.unwrap();
+    let storage = EnvStorage::new(app.tmp.path());
+    storage.create(&env.id).await.unwrap();
+    // root file + a subdir with a file inside
+    storage.write_file(&env.id, "top.txt", b"top").await.unwrap();
+    storage.write_file(&env.id, "sub/inner.txt", b"in").await.unwrap();
+
+    // root listing — should include both the file and the folder
+    let res = app
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/envs/{}/files", env.id))
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let body = body_string(res).await;
+    assert!(body.contains("top.txt"), "root listing should include top.txt: {body}");
+    assert!(body.contains("folder-row"), "root listing should mark sub as a folder: {body}");
+    assert!(body.contains(">sub<") || body.contains("sub</span>"), "root listing should name the folder: {body}");
+
+    // descend into sub
+    let res = app
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/envs/{}/files?path=sub", env.id))
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let body = body_string(res).await;
+    assert!(body.contains("inner.txt"), "subdir listing should include inner.txt: {body}");
+    assert!(body.contains("/mnt/sub/inner.txt"), "copy-path should reflect full subpath: {body}");
+}
+
+#[tokio::test]
+async fn ui_upload_into_subfolder_writes_to_subfolder() {
+    let app = TestApp::new().await;
+    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
+    let cookie = app.sign_in(user.id).await;
+    let env = Env::create(&app.pool, user.id, "scratch").await.unwrap();
+    let storage = EnvStorage::new(app.tmp.path());
+    storage.create(&env.id).await.unwrap();
+    storage.write_file(&env.id, "sub/keep.txt", b"k").await.unwrap();
+
+    let boundary = "X-BOUNDARY";
+    let body = multipart_body(boundary, "added.txt", b"hi");
+    let res = app
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/envs/{}/files?path=sub", env.id))
+                .header("cookie", &cookie)
+                .header(
+                    "content-type",
+                    format!("multipart/form-data; boundary={boundary}"),
+                )
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    assert!(
+        app.tmp
+            .path()
+            .join("envs")
+            .join(&env.id)
+            .join("files")
+            .join("sub")
+            .join("added.txt")
+            .exists(),
+        "uploaded file should land under sub/"
+    );
+}
+
+#[tokio::test]
 async fn ui_upload_adds_file_and_returns_updated_list() {
     let app = TestApp::new().await;
     let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();

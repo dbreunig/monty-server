@@ -47,7 +47,7 @@
             <h2>Code</h2>
         </div>
         <form class="creator-stack" method="post" action="/functions/{{ function.id }}">
-            <textarea name="code" rows="14" required>{{ function.code }}</textarea>
+            <textarea name="code" class="code-editor" rows="14" required>{{ function.code }}</textarea>
             <div class="creator-row">
                 <label class="checkbox">
                     <input type="checkbox" name="is_public" value="on"{% if function.is_public %} checked{% endif %}> public

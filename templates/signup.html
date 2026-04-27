@@ -1,17 +1,21 @@
 {% extends "base.html" %}
-{% block title %}Sign up{% endblock %}
+{% block title %}Sign up — monty{% endblock %}
 {% block content %}
-<h1>Create an account</h1>
+<div class="auth-shell">
+    <div class="auth-card">
+        <div class="brand-row"><span class="mark"></span><span class="name">monty</span></div>
+        <h1>Create an account</h1>
+        <p class="muted">New accounts require administrator approval before they can create API keys or environments.</p>
 
-{% if let Some(msg) = error %}<p class="warn">{{ msg }}</p>{% endif %}
+        {% if let Some(msg) = error %}<div class="alert alert-danger">{{ msg }}</div>{% endif %}
 
-<p><em>New accounts require administrator approval before they can create API keys or environments.</em></p>
+        <form method="post" action="/auth/signup">
+            <label class="label-stack"><span>Email</span><input type="email" name="email" required autofocus></label>
+            <label class="label-stack"><span>Password</span><input type="password" name="password" minlength="8" required></label>
+            <button type="submit" class="btn-primary">Sign up</button>
+        </form>
 
-<form method="post" action="/auth/signup">
-    <p><label>Email: <input type="email" name="email" required></label></p>
-    <p><label>Password: <input type="password" name="password" minlength="8" required></label></p>
-    <button type="submit">Sign up</button>
-</form>
-
-<p>Already have an account? <a href="/auth/login">Sign in</a>.</p>
+        <p class="foot">Already have an account? <a href="/auth/login">Sign in</a>.</p>
+    </div>
+</div>
 {% endblock %}

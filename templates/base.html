@@ -2,17 +2,99 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}monty-server{% endblock %}</title>
+    <link rel="stylesheet" href="/static/app.css">
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <style>
-        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
-        .token { font-family: monospace; padding: 0.25rem 0.5rem; background: #eef; border-radius: 3px; }
-        .warn { color: #b00; font-weight: bold; }
-    </style>
 </head>
 <body>
-{% block content %}{% endblock %}
+{% block body %}{% block content %}{% endblock %}{% endblock %}
+<script>
+    (() => {
+        const bar = document.querySelector('.pagebar');
+        if (!bar) return;
+        const update = () => bar.classList.toggle('pinned', window.scrollY > 2);
+        window.addEventListener('scroll', update, { passive: true });
+        update();
+    })();
+
+    document.addEventListener('click', (e) => {
+        const row = e.target.closest('tr[data-href]');
+        if (!row) return;
+        if (e.target.closest('a, button')) return;
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+        window.location = row.dataset.href;
+    });
+
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-copy]');
+        if (!btn) return;
+        e.preventDefault();
+        try {
+            await navigator.clipboard.writeText(btn.dataset.copy);
+        } catch (_) {
+            return;
+        }
+        btn.classList.add('copied');
+        setTimeout(() => btn.classList.remove('copied'), 1100);
+    });
+</script>
+<script type="module">
+    import { EditorView, keymap, lineNumbers, highlightActiveLine } from 'https://esm.sh/@codemirror/view@6';
+    import { EditorState } from 'https://esm.sh/@codemirror/state@6';
+    import { defaultKeymap, indentWithTab, history, historyKeymap } from 'https://esm.sh/@codemirror/commands@6';
+    import { python } from 'https://esm.sh/@codemirror/lang-python@6';
+    import { syntaxHighlighting, defaultHighlightStyle, indentUnit, bracketMatching } from 'https://esm.sh/@codemirror/language@6';
+    import { closeBrackets } from 'https://esm.sh/@codemirror/autocomplete@6';
+
+    document.querySelectorAll('textarea.code-editor').forEach((ta) => {
+        ta.style.display = 'none';
+        const host = document.createElement('div');
+        host.className = 'cm-host';
+        ta.after(host);
+
+        const view = new EditorView({
+            parent: host,
+            state: EditorState.create({
+                doc: ta.value,
+                extensions: [
+                    lineNumbers(),
+                    highlightActiveLine(),
+                    history(),
+                    bracketMatching(),
+                    closeBrackets(),
+                    indentUnit.of('    '),
+                    syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+                    keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
+                    python(),
+                    EditorView.updateListener.of((u) => {
+                        if (u.docChanged) {
+                            ta.value = u.state.doc.toString();
+                            ta.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    }),
+                ],
+            }),
+        });
+
+        const form = ta.closest('form');
+        if (form) {
+            form.addEventListener('submit', () => {
+                ta.value = view.state.doc.toString();
+            });
+        }
+
+        // Re-sync editor when something else (e.g. localStorage restore) writes to the textarea.
+        const sync = () => {
+            const cur = view.state.doc.toString();
+            if (cur !== ta.value) {
+                view.dispatch({
+                    changes: { from: 0, to: cur.length, insert: ta.value },
+                });
+            }
+        };
+        ta.addEventListener('cm-sync', sync);
+    });
+</script>
 </body>
 </html>

@@ -1,0 +1,78 @@
+<div id="files-panel" class="files-panel">
+    <nav class="path-bar" aria-label="File path">
+        {%- if panel_path.is_empty() %}
+        <span class="crumb-current">/mnt</span>
+        {%- else %}
+        <a href="#" hx-get="/envs/{{ env_id }}/files" hx-target="#files-panel" hx-swap="outerHTML">/mnt</a>
+        {%- endif %}
+        {%- for crumb in panel_crumbs %}
+        <span class="sep">/</span>
+        {%- if loop.last %}
+        <span class="crumb-current">{{ crumb.name }}</span>
+        {%- else %}
+        <a href="#" hx-get="/envs/{{ env_id }}/files?path={{ crumb.path }}" hx-target="#files-panel" hx-swap="outerHTML">{{ crumb.name }}</a>
+        {%- endif %}
+        {%- endfor %}
+    </nav>
+
+    <form class="creator-row"
+          hx-post="/envs/{{ env_id }}/files?path={{ panel_path }}"
+          hx-target="#files-panel" hx-swap="outerHTML"
+          hx-encoding="multipart/form-data">
+        <input type="file" name="file" required>
+        <button type="submit" class="btn-primary">Upload</button>
+    </form>
+
+    {% if panel_entries.is_empty() %}
+    <div class="empty-state">{% if panel_path.is_empty() %}No files yet.{% else %}Empty folder.{% endif %}</div>
+    {% else %}
+    <table class="data-table files-table">
+        <thead><tr><th class="icon-col"></th><th>Name</th><th>Size</th><th></th></tr></thead>
+        <tbody>
+            {% for e in panel_entries %}
+            {% if e.is_dir %}
+            <tr class="folder-row"
+                hx-get="/envs/{{ env_id }}/files?path={{ e.relpath }}"
+                hx-target="#files-panel" hx-swap="outerHTML">
+                <td class="icon-cell">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                </td>
+                <td><span class="folder-name">{{ e.name }}</span></td>
+                <td class="muted">—</td>
+                <td class="actions"></td>
+            </tr>
+            {% else %}
+            <tr>
+                <td class="icon-cell">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                </td>
+                <td>{{ e.name }}</td>
+                <td class="muted">{{ e.size }}</td>
+                <td class="actions">
+                    <button class="icon-btn" data-copy="/mnt/{{ e.relpath }}" type="button"
+                            aria-label="Copy path" title="Copy path /mnt/{{ e.relpath }}">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round" aria-hidden="true">
+                            <rect x="9" y="9" width="13" height="13" rx="2"/>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                    </button>
+                    <button class="btn-danger btn-sm"
+                            hx-delete="/envs/{{ env_id }}/files?path={{ panel_path }}&name={{ e.relpath }}"
+                            hx-target="#files-panel" hx-swap="outerHTML">Delete</button>
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>

@@ -64,6 +64,53 @@ async fn repl_fragments_persist_state_across_posts() {
 }
 
 #[tokio::test]
+async fn repl_history_renders_on_env_detail() {
+    let app = TestApp::new().await;
+    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
+    let cookie = app.sign_in(user.id).await;
+    let env = Env::create(&app.pool, user.id, "scratch").await.unwrap();
+    EnvStorage::new(app.tmp.path()).create(&env.id).await.unwrap();
+
+    let _ = post_repl(&app, &env.id, &cookie, "x = 7").await;
+    let _ = post_repl(&app, &env.id, &cookie, "print(x * 6)").await;
+
+    let res = app
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/envs/{}", env.id))
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let body = body_string(res).await;
+    assert!(body.contains("x = 7"), "history should include first call: {body}");
+    assert!(body.contains("print(x * 6)"), "history should include second call");
+    assert!(body.contains("42"), "history should include the printed output");
+}
+
+#[tokio::test]
+async fn deleting_env_clears_repl_history() {
+    use monty_server::models::ReplCall;
+    let app = TestApp::new().await;
+    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
+    let cookie = app.sign_in(user.id).await;
+    let env = Env::create(&app.pool, user.id, "scratch").await.unwrap();
+    EnvStorage::new(app.tmp.path()).create(&env.id).await.unwrap();
+    let _ = post_repl(&app, &env.id, &cookie, "x = 1").await;
+    assert_eq!(ReplCall::list_for_env(&app.pool, &env.id).await.unwrap().len(), 1);
+
+    Env::delete_for_user(&app.pool, user.id, &env.id).await.unwrap();
+    assert_eq!(ReplCall::list_for_env(&app.pool, &env.id).await.unwrap().len(), 0);
+}
+
+#[tokio::test]
 async fn repl_for_other_users_env_is_404() {
     let app = TestApp::new().await;
     let alice = User::upsert_github(&app.pool, 1, "alice", None).await.unwrap();

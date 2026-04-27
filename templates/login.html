@@ -1,21 +1,27 @@
 {% extends "base.html" %}
-{% block title %}Sign in{% endblock %}
+{% block title %}Sign in — monty{% endblock %}
 {% block content %}
-<h1>Sign in</h1>
+<div class="auth-shell">
+    <div class="auth-card">
+        <div class="brand-row"><span class="mark"></span><span class="name">monty</span></div>
+        <h1>Sign in</h1>
+        <p class="muted">Welcome back.</p>
 
-{% if let Some(msg) = info %}<p style="color: #060;">{{ msg }}</p>{% endif %}
-{% if let Some(msg) = error %}<p class="warn">{{ msg }}</p>{% endif %}
+        {% if let Some(msg) = info %}<div class="alert alert-success">{{ msg }}</div>{% endif %}
+        {% if let Some(msg) = error %}<div class="alert alert-danger">{{ msg }}</div>{% endif %}
 
-<form method="post" action="/auth/login">
-    <p><label>Email: <input type="email" name="email" required></label></p>
-    <p><label>Password: <input type="password" name="password" required></label></p>
-    <button type="submit">Sign in</button>
-</form>
+        <form method="post" action="/auth/login">
+            <label class="label-stack"><span>Email</span><input type="email" name="email" required autofocus></label>
+            <label class="label-stack"><span>Password</span><input type="password" name="password" required></label>
+            <button type="submit" class="btn-primary">Sign in</button>
+        </form>
 
-<p>No account? <a href="/auth/signup">Sign up</a>.</p>
+        {% if github_enabled %}
+        <div class="divider">or</div>
+        <a class="btn oauth-btn" href="/auth/login-github">Sign in with GitHub</a>
+        {% endif %}
 
-{% if github_enabled %}
-<hr>
-<p><a href="/auth/login-github">Sign in with GitHub</a></p>
-{% endif %}
+        <p class="foot">No account? <a href="/auth/signup">Sign up</a>.</p>
+    </div>
+</div>
 {% endblock %}

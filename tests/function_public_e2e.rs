@@ -18,7 +18,7 @@ async fn public_webhook_flow_end_to_end() {
 
     // 1) Create the function via the web form, is_public = true.
     //    code = "def handler(x: int) -> int:\n    return x + 1\n"
-    let form = "slug=webhook&mode=stateless&is_public=on\
+    let form = "slug=webhook&target=stateless&is_public=on\
 &code=def+handler%28x%3A+int%29+-%3E+int%3A%0A++++return+x+%2B+1%0A";
     let create_res = app
         .router

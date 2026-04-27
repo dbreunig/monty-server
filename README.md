@@ -10,11 +10,13 @@ with bearer tokens.
 - **Two sign-in options** — email/password (with admin approval) or GitHub OAuth
 - **Single binary** — Axum + SQLite + local disk, no external services
 
+![Dashboard](docs/images/dashboard.png)
+
 ## Quick start (local dev)
 
 ```bash
-# 1. Clone with the monty submodule
-git clone --recurse-submodules https://github.com/you/monty-server
+# 1. Clone
+git clone https://github.com/you/monty-server
 cd monty-server
 
 # 2. Register a GitHub OAuth App at
@@ -157,7 +159,7 @@ All config is from env vars. See [`.env.example`](./.env.example) for the full l
 - `src/models/` — User / ApiKey / Env (sqlx)
 - `src/routes/api.rs` — JSON API under `/api/v1/*`
 - `src/routes/web.rs` — HTMX-driven UI
-- `monty/` — vendored Monty interpreter (git submodule)
+- `monty` — Monty interpreter, pinned as a git dependency in `Cargo.toml`
 
 See [`docs/plans/`](./docs/plans/) for design decisions and the implementation plan.
 

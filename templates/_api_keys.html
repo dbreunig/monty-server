@@ -1,22 +1,29 @@
 <div id="api-keys">
 {% if let Some(plaintext) = new_plaintext %}
-<p class="warn">Copy this token now — you will not see it again:</p>
-<p><span class="token">{{ plaintext }}</span></p>
+<div class="alert alert-warning">
+    <strong>Copy this token now</strong> — you will not see it again.
+    <div class="token-reveal">{{ plaintext }}</div>
+</div>
 {% endif %}
-<table>
+{% if api_keys.is_empty() %}
+<div class="empty-state">No API keys yet.</div>
+{% else %}
+<table class="data-table">
     <thead><tr><th>Name</th><th>Prefix</th><th>Created</th><th></th></tr></thead>
     <tbody>
         {% for key in api_keys %}
         <tr>
             <td>{{ key.name }}</td>
-            <td><code>{{ key.prefix }}…</code></td>
-            <td>{{ key.created_at }}</td>
-            <td>
-                <button hx-post="/api-keys/{{ key.id }}/delete"
+            <td><code class="inline">{{ key.prefix }}…</code></td>
+            <td class="muted">{{ key.created_at }}</td>
+            <td class="actions">
+                <button class="btn-danger btn-sm"
+                        hx-post="/api-keys/{{ key.id }}/delete"
                         hx-target="#api-keys" hx-swap="outerHTML">Delete</button>
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+{% endif %}
 </div>

@@ -56,31 +56,65 @@
             <h2>Functions</h2>
             <span class="count">{{ functions.len() }}</span>
         </div>
-        <form class="creator-stack" method="post" action="/functions">
+        <form id="fn-create" class="creator-stack" method="post" action="/functions">
+            <input type="text" name="slug" value="function-slug" required>
+            <textarea name="code" class="code-editor" rows="6" required>def handler(name: str) -&gt; dict:
+    return {&quot;hello&quot;: name}</textarea>
             <div class="creator-row">
-                <input type="text" name="slug" placeholder="function-slug" required>
-                <label class="radio">
-                    <input type="radio" name="mode" value="stateless" checked> stateless
+                <label class="field-inline">
+                    Run in:
+                    <select name="target">
+                        <option value="stateless" selected>Stateless</option>
+                        {% for env in envs %}
+                        <option value="{{ env.id }}">env: {{ env.name }}</option>
+                        {% endfor %}
+                    </select>
                 </label>
-                <label class="radio">
-                    <input type="radio" name="mode" value="bound"> bound
-                </label>
-                <select name="env_id">
-                    <option value="">— no env —</option>
-                    {% for env in envs %}
-                    <option value="{{ env.id }}">{{ env.name }}</option>
-                    {% endfor %}
-                </select>
                 <label class="checkbox">
                     <input type="checkbox" name="is_public" value="on"> public
                 </label>
-            </div>
-            <textarea name="code" rows="6"
-                placeholder="def handler(name: str) -> dict:&#10;    return {&quot;hello&quot;: name}" required></textarea>
-            <div class="creator-row">
                 <button type="submit" class="btn-primary">Create function</button>
             </div>
         </form>
+        <script>
+        (function () {
+            var form = document.getElementById('fn-create');
+            if (!form) return;
+            var KEYS = ['slug', 'code', 'target', 'is_public'];
+            var storeKey = function (k) { return 'monty.fn-create.' + k; };
+            KEYS.forEach(function (k) {
+                var el = form.elements[k];
+                if (!el) return;
+                var saved = localStorage.getItem(storeKey(k));
+                if (saved !== null) {
+                    if (el.type === 'checkbox') el.checked = saved === '1';
+                    else {
+                        el.value = saved;
+                        el.dispatchEvent(new Event('cm-sync'));
+                    }
+                }
+                el.addEventListener('input', function () {
+                    if (el.type === 'checkbox') localStorage.setItem(storeKey(k), el.checked ? '1' : '0');
+                    else localStorage.setItem(storeKey(k), el.value);
+                });
+                if (el.tagName === 'SELECT') {
+                    el.addEventListener('change', function () {
+                        localStorage.setItem(storeKey(k), el.value);
+                    });
+                }
+            });
+            ['slug', 'code'].forEach(function (k) {
+                var el = form.elements[k];
+                if (!el) return;
+                el.addEventListener('focus', function () {
+                    if (el === document.activeElement) el.select();
+                }, { once: false });
+            });
+            form.addEventListener('submit', function () {
+                KEYS.forEach(function (k) { localStorage.removeItem(storeKey(k)); });
+            });
+        })();
+        </script>
         <div id="functions-list">{% include "_functions_list.html" %}</div>
     </section>
 

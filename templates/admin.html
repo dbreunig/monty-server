@@ -1,10 +1,26 @@
 {% extends "base.html" %}
-{% block title %}Admin — pending approvals{% endblock %}
-{% block content %}
-<h1>Admin</h1>
-<p>Signed in as <strong>{{ admin.display_name() }}</strong> (admin).</p>
-<p><a href="/dashboard">← Dashboard</a></p>
+{% block title %}Admin — monty{% endblock %}
+{% block body %}
+<div class="page">
+    <div class="pagebar">
+        <nav class="crumbs">
+            <a href="/dashboard">Dashboard</a>
+            <span class="crumb-sep">/</span>
+            <span class="crumb-current">Admin</span>
+        </nav>
+        <div class="pagebar-actions">
+            <form method="post" action="/auth/logout">
+                <button type="submit" class="pagebar-btn">Sign out</button>
+            </form>
+        </div>
+    </div>
 
-<h2>Pending approvals</h2>
-<div id="pending">{% include "_admin_pending.html" %}</div>
+    <section class="section">
+        <div class="section-header">
+            <h2>Pending approvals</h2>
+            <span class="count">{{ pending.len() }}</span>
+        </div>
+        <div id="pending">{% include "_admin_pending.html" %}</div>
+    </section>
+</div>
 {% endblock %}

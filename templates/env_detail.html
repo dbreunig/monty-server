@@ -1,22 +1,95 @@
 {% extends "base.html" %}
-{% block title %}{{ env.name }}{% endblock %}
-{% block content %}
-<h1>{{ env.name }} <small><code>{{ env.id }}</code></small></h1>
-<p><a href="/envs">← All environments</a></p>
+{% block title %}{{ env.name }} — monty{% endblock %}
+{% block body %}
+<div class="page">
+    <div class="pagebar">
+        <nav class="crumbs">
+            <a href="/dashboard">Dashboard</a>
+            <span class="crumb-sep">/</span>
+            <span class="crumb-current">{{ env.name }}</span>
+            <span class="id-pill">{{ env.id }}</span>
+        </nav>
+        <div class="pagebar-actions">
+            {% if user.is_admin %}<a class="pagebar-link" href="/admin">Admin</a>{% endif %}
+            <form method="post" action="/auth/logout">
+                <button type="submit" class="pagebar-btn">Sign out</button>
+            </form>
+        </div>
+    </div>
 
-<h2>Files</h2>
-<div id="file-list">{% include "_file_list.html" %}</div>
+    <section class="section">
+        <div class="section-header">
+            <h2>Files</h2>
+            <span class="count">{{ panel_entries.len() }}</span>
+        </div>
+        {% include "_files_panel.html" %}
+    </section>
 
-<form hx-post="/envs/{{ env.id }}/files" hx-target="#file-list" hx-swap="outerHTML"
-      hx-encoding="multipart/form-data">
-    <input type="file" name="file" required>
-    <button type="submit">Upload</button>
-</form>
-
-<h2>REPL</h2>
-<div id="transcript"></div>
-<form hx-post="/envs/{{ env.id }}/repl" hx-target="#transcript" hx-swap="beforeend">
-    <textarea name="code" rows="6" cols="80" placeholder="Python..."></textarea><br>
-    <button type="submit">Run</button>
-</form>
+    <section class="section">
+        <div class="section-header">
+            <h2>REPL</h2>
+            <span class="count">{{ repl_calls.len() }}</span>
+        </div>
+        <div class="repl-panel">
+            <div id="transcript" class="repl-history">{%- for call in repl_calls %}
+                <div class="repl-output">
+                    <pre><span class="prompt">&gt;&gt;&gt;</span> <code class="language-python">{{ call.code }}</code></pre>
+                    {%- if !call.stdout.is_empty() %}
+                    <pre>{{ call.stdout }}</pre>
+                    {%- endif %}
+                    {%- if !call.stderr.is_empty() %}
+                    <pre class="stderr">{{ call.stderr }}</pre>
+                    {%- endif %}
+                    {%- if let Some(err) = call.error.as_ref() %}
+                    <pre class="stderr">{{ err }}</pre>
+                    {%- endif %}
+                    {%- if let Some(res) = call.result.as_ref() %}
+                    <pre class="repl-result">= {{ res }}</pre>
+                    {%- endif %}
+                </div>
+            {%- endfor %}</div>
+            <form class="repl-composer"
+                  hx-post="/envs/{{ env.id }}/repl"
+                  hx-target="#transcript" hx-swap="beforeend">
+                <textarea name="code" rows="3" placeholder="# Python… (⌘↵ or Ctrl↵ to run)"></textarea>
+                <button type="submit" class="btn-primary">Run</button>
+            </form>
+        </div>
+    </section>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
+<script>
+    (() => {
+        const transcript = document.getElementById('transcript');
+        const composer = document.querySelector('.repl-composer');
+        if (!transcript || !composer) return;
+        const textarea = composer.querySelector('textarea');
+        const scrollDown = () => { transcript.scrollTop = transcript.scrollHeight; };
+        const highlight = (root) => {
+            if (!window.Prism) return;
+            root.querySelectorAll('code[class*="language-"]').forEach((el) => Prism.highlightElement(el));
+        };
+        const init = () => { highlight(transcript); scrollDown(); };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+        document.body.addEventListener('htmx:afterSwap', (e) => {
+            if (e.target && e.target.id === 'transcript') {
+                highlight(e.target.lastElementChild || e.target);
+                scrollDown();
+                textarea.value = '';
+                textarea.focus();
+            }
+        });
+        textarea.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                composer.requestSubmit();
+            }
+        });
+    })();
+</script>
 {% endblock %}

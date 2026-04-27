@@ -3,3 +3,5 @@ target/
 *.db
 *.db-*
 .env
+.DS_Store
+**/.DS_Store

@@ -12,10 +12,51 @@ async fn body_string(res: axum::response::Response) -> String {
 }
 
 #[tokio::test]
-async fn env_list_page_renders() {
+async fn root_redirects_to_login_when_signed_out() {
+    let app = TestApp::new().await;
+    let res = app
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::SEE_OTHER);
+    assert_eq!(res.headers().get("location").unwrap(), "/auth/login");
+}
+
+#[tokio::test]
+async fn root_redirects_to_dashboard_when_signed_in() {
     let app = TestApp::new().await;
     let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
     User::approve(&app.pool, user.id).await.unwrap();
+    let cookie = app.sign_in(user.id).await;
+    let res = app
+        .router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/")
+                .header("cookie", &cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::SEE_OTHER);
+    assert_eq!(res.headers().get("location").unwrap(), "/dashboard");
+}
+
+#[tokio::test]
+async fn dashboard_lists_environments() {
+    let app = TestApp::new().await;
+    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
+    User::approve(&app.pool, user.id).await.unwrap();
+    Env::create(&app.pool, user.id, "scratch").await.unwrap();
     let cookie = app.sign_in(user.id).await;
 
     let res = app
@@ -23,7 +64,7 @@ async fn env_list_page_renders() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/envs")
+                .uri("/dashboard")
                 .header("cookie", &cookie)
                 .body(Body::empty())
                 .unwrap(),
@@ -33,6 +74,7 @@ async fn env_list_page_renders() {
     assert_eq!(res.status(), StatusCode::OK);
     let body = body_string(res).await;
     assert!(body.contains("Environments"));
+    assert!(body.contains("scratch"));
 }
 
 #[tokio::test]

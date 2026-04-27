@@ -44,8 +44,18 @@ struct DashboardTemplate {
     api_keys: Vec<ApiKey>,
     new_plaintext: Option<String>,
     envs: Vec<Env>,
-    functions: Vec<Function>,
+    functions: Vec<FunctionRow>,
     error_message: Option<String>,
+}
+
+struct FunctionRow {
+    id: String,
+    slug: String,
+    mode: String,
+    is_public: bool,
+    public_token: Option<String>,
+    updated_at: chrono::DateTime<chrono::Utc>,
+    curl_command: String,
 }
 
 #[derive(Template)]
@@ -176,10 +186,28 @@ async fn dashboard(
     Query(q): Query<DashboardQuery>,
 ) -> AppResult<Response> {
     let (api_keys, envs, functions) = if user.is_approved() {
+        let raw_functions = Function::list_for_user(&state.pool, user.id).await?;
+        let base_url = state.config.base_url.trim_end_matches('/').to_string();
+        let function_rows = raw_functions
+            .into_iter()
+            .map(|f| {
+                let body = build_example_body(&f.code);
+                let curl = build_curl(&base_url, &f, &body);
+                FunctionRow {
+                    id: f.id,
+                    slug: f.slug,
+                    mode: f.mode,
+                    is_public: f.is_public,
+                    public_token: f.public_token,
+                    updated_at: f.updated_at,
+                    curl_command: curl,
+                }
+            })
+            .collect();
         (
             ApiKey::list_for_user(&state.pool, user.id).await?,
             Env::list_for_user(&state.pool, user.id).await?,
-            Function::list_for_user(&state.pool, user.id).await?,
+            function_rows,
         )
     } else {
         (Vec::new(), Vec::new(), Vec::new())
@@ -193,6 +221,51 @@ async fn dashboard(
         error_message: q.error,
     }
     .into_response())
+}
+
+fn build_example_body(code: &str) -> String {
+    use crate::functions::signature::{TypeHint, parse_handler};
+    use serde_json::{Map, Value, json};
+    let sig = match parse_handler(code) {
+        Ok(s) => s,
+        Err(_) => return "{}".to_string(),
+    };
+    let mut m = Map::new();
+    for p in sig.params {
+        let v = match p.type_hint {
+            TypeHint::Str => Value::String(format!("<{}>", p.name)),
+            TypeHint::Int => json!(0),
+            TypeHint::Float => json!(0.0),
+            TypeHint::Bool => Value::Bool(false),
+            TypeHint::List => Value::Array(vec![]),
+            TypeHint::Dict => Value::Object(Map::new()),
+            TypeHint::None_ => Value::Null,
+            TypeHint::Any => Value::String(format!("<{}>", p.name)),
+        };
+        m.insert(p.name, v);
+    }
+    serde_json::to_string(&Value::Object(m)).unwrap_or_else(|_| "{}".to_string())
+}
+
+fn build_curl(base_url: &str, f: &Function, body: &str) -> String {
+    let path = if f.is_public {
+        match f.public_token.as_deref() {
+            Some(token) => format!("/fn/p/{token}"),
+            None => format!("/fn/{}", f.slug),
+        }
+    } else {
+        format!("/fn/{}", f.slug)
+    };
+    let url = format!("{base_url}{path}");
+    if f.is_public {
+        format!(
+            "curl -X POST '{url}' -H 'Content-Type: application/json' -d '{body}'"
+        )
+    } else {
+        format!(
+            "curl -X POST '{url}' -H 'Authorization: Bearer $MONTY_API_KEY' -H 'Content-Type: application/json' -d '{body}'"
+        )
+    }
 }
 
 #[derive(Deserialize)]
@@ -417,9 +490,9 @@ async fn delete_file_ui(
 #[derive(Deserialize)]
 struct CreateFunctionForm {
     slug: String,
-    mode: String,
+    /// Either the literal `"stateless"` or an env id. Empty / missing also means stateless.
     #[serde(default)]
-    env_id: Option<String>,
+    target: String,
     code: String,
     #[serde(default)]
     is_public: Option<String>,
@@ -451,36 +524,21 @@ async fn create_function_ui(
     State(state): State<AppState>,
     Form(form): Form<CreateFunctionForm>,
 ) -> AppResult<Response> {
-    // Validate mode.
-    if form.mode != "stateless" && form.mode != "bound" {
-        return Ok(dashboard_error_redirect(
-            "mode must be 'stateless' or 'bound'",
-        ));
-    }
-
-    // Validate env pairing.
-    let env_id_ref: Option<&str> = if form.mode == "bound" {
-        let env_id = form
-            .env_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty());
-        let Some(env_id) = env_id else {
-            return Ok(dashboard_error_redirect(
-                "env_id is required for bound functions",
-            ));
-        };
-        if Env::find_for_user(&state.pool, user.id, env_id)
+    // Resolve target → (mode, env_id). "stateless" or empty → stateless. Anything else
+    // is treated as an env id and must belong to the user.
+    let target = form.target.trim();
+    let (mode, env_id_ref): (&str, Option<&str>) = if target.is_empty() || target == "stateless" {
+        ("stateless", None)
+    } else {
+        if Env::find_for_user(&state.pool, user.id, target)
             .await?
             .is_none()
         {
             return Ok(dashboard_error_redirect(
-                "env_id does not exist or is not owned by you",
+                "selected environment does not exist or is not owned by you",
             ));
         }
-        Some(env_id)
-    } else {
-        None
+        ("bound", Some(target))
     };
 
     // Validate slug shape.
@@ -502,7 +560,7 @@ async fn create_function_ui(
         user.id,
         &form.slug,
         &form.code,
-        &form.mode,
+        mode,
         env_id_ref,
         is_public,
         true,

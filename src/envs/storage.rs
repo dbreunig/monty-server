@@ -8,6 +8,7 @@ use tokio::io::AsyncWriteExt;
 pub struct FileEntry {
     pub name: String,
     pub size: u64,
+    pub is_dir: bool,
 }
 
 /// Filesystem layout:
@@ -89,11 +90,55 @@ impl EnvStorage {
                 out.push(FileEntry {
                     name: entry.file_name().to_string_lossy().into_owned(),
                     size: meta.len(),
+                    is_dir: false,
                 });
             }
         }
         out.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(out)
+    }
+
+    /// Lists the immediate contents of `<files_dir>/<subpath>`. Directories
+    /// come first, sorted alphabetically, then files. Returns an empty Vec if
+    /// the target dir doesn't exist.
+    pub async fn list_dir(&self, id: &str, subpath: &str) -> Result<Vec<FileEntry>> {
+        validate_subpath(subpath)?;
+        let dir = self.files_dir(id)?.join(subpath);
+        let mut out = Vec::new();
+        let mut rd = match fs::read_dir(&dir).await {
+            Ok(rd) => rd,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(out),
+            Err(e) => return Err(e).context("read_dir"),
+        };
+        while let Some(entry) = rd.next_entry().await.context("next_entry")? {
+            let meta = entry.metadata().await.context("metadata")?;
+            let is_dir = meta.is_dir();
+            if !is_dir && !meta.is_file() {
+                continue;
+            }
+            out.push(FileEntry {
+                name: entry.file_name().to_string_lossy().into_owned(),
+                size: if is_dir { 0 } else { meta.len() },
+                is_dir,
+            });
+        }
+        out.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.name.cmp(&b.name),
+        });
+        Ok(out)
+    }
+
+    /// Returns true if `<files_dir>/<subpath>` exists and is a directory.
+    pub async fn dir_exists(&self, id: &str, subpath: &str) -> Result<bool> {
+        validate_subpath(subpath)?;
+        let path = self.files_dir(id)?.join(subpath);
+        match fs::metadata(&path).await {
+            Ok(meta) => Ok(meta.is_dir()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(e).context("dir metadata"),
+        }
     }
 
     pub async fn write_file(&self, id: &str, name: &str, bytes: &[u8]) -> Result<()> {
@@ -144,6 +189,29 @@ impl EnvStorage {
         validate_id(id)?;
         Ok(self.root.join("envs").join(id))
     }
+}
+
+/// Validates a path relative to an env's files dir. Empty string means "root".
+/// Same charset as filenames; `/` separates segments; no `.`, `..`, leading `/`.
+fn validate_subpath(path: &str) -> Result<()> {
+    if path.is_empty() {
+        return Ok(());
+    }
+    if path.starts_with('/') {
+        bail!("path must be relative: {path}");
+    }
+    for segment in path.split('/') {
+        if segment.is_empty() || segment == "." || segment == ".." {
+            bail!("invalid path segment in: {path}");
+        }
+        if !segment
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_')
+        {
+            bail!("path contains invalid characters: {path}");
+        }
+    }
+    Ok(())
 }
 
 fn validate_filename(name: &str) -> Result<()> {

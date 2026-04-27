@@ -1,17 +1,18 @@
 <div id="pending">
 {% if pending.is_empty() %}
-<p><em>No accounts waiting for approval.</em></p>
+<div class="empty-state">No accounts waiting for approval.</div>
 {% else %}
-<table>
+<table class="data-table">
     <thead><tr><th>User</th><th>Email</th><th>Created</th><th></th></tr></thead>
     <tbody>
         {% for u in pending %}
         <tr>
             <td>{{ u.display_name() }}</td>
-            <td>{% if let Some(email) = u.email.as_ref() %}{{ email }}{% else %}—{% endif %}</td>
-            <td>{{ u.created_at }}</td>
-            <td>
-                <button hx-post="/admin/approve/{{ u.id }}"
+            <td class="muted">{% if let Some(email) = u.email.as_ref() %}{{ email }}{% else %}—{% endif %}</td>
+            <td class="muted">{{ u.created_at }}</td>
+            <td class="actions">
+                <button class="btn-primary btn-sm"
+                        hx-post="/admin/approve/{{ u.id }}"
                         hx-target="#pending" hx-swap="outerHTML">Approve</button>
             </td>
         </tr>

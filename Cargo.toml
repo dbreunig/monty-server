@@ -2,6 +2,11 @@
 name = "monty-server"
 version = "0.1.0"
 edition = "2024"
+description = "Self-hostable web server exposing the Monty Python interpreter as a multi-tenant sandboxed REPL + HTTP function platform."
+license = "MIT"
+repository = "https://github.com/dbreunig/monty-server"
+authors = ["Drew Breunig <dbreunig@gmail.com>"]
+readme = "README.md"
 
 [lib]
 path = "src/lib.rs"
@@ -36,8 +41,9 @@ time = "0.3"
 askama = "0.12"
 askama_axum = "0.4"
 dashmap = "6"
-monty = { path = "monty/crates/monty" }
+monty = { git = "https://github.com/pydantic/monty", rev = "33e47c64dcb915f32932d647d853d1cb9a24a1b9" }
 postcard = { version = "1", features = ["use-std"] }
+dotenvy = "0.15"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

@@ -75,7 +75,7 @@ async fn dashboard_shows_functions_section() {
         "dashboard should include the new-function form"
     );
     assert!(body.contains("name=\"slug\""));
-    assert!(body.contains("name=\"mode\""));
+    assert!(body.contains("name=\"target\""));
     assert!(body.contains("name=\"code\""));
 }
 
@@ -87,7 +87,7 @@ async fn create_function_via_form_redirects_to_dashboard() {
     let cookie = app.sign_in(user.id).await;
 
     // URL-encoded form body. `code` = "def handler():\n    return 1\n"
-    let form = "slug=webhook&mode=stateless&code=def+handler%28%29%3A%0A++++return+1%0A";
+    let form = "slug=webhook&target=stateless&code=def+handler%28%29%3A%0A++++return+1%0A";
     let res = post_form(&app, &cookie, "/functions", form).await;
     assert_eq!(res.status(), StatusCode::SEE_OTHER);
     assert_eq!(res.headers().get("location").unwrap(), "/dashboard");
@@ -100,14 +100,21 @@ async fn create_function_via_form_redirects_to_dashboard() {
 }
 
 #[tokio::test]
-async fn create_bound_without_env_renders_error() {
+async fn create_with_foreign_env_renders_error() {
     let app = TestApp::new().await;
-    let user = User::upsert_github(&app.pool, 1, "u", None).await.unwrap();
-    User::approve(&app.pool, user.id).await.unwrap();
-    let cookie = app.sign_in(user.id).await;
+    let alice = User::upsert_github(&app.pool, 1, "alice", None).await.unwrap();
+    User::approve(&app.pool, alice.id).await.unwrap();
+    let bob = User::upsert_github(&app.pool, 2, "bob", None).await.unwrap();
+    User::approve(&app.pool, bob.id).await.unwrap();
+    let bob_env = Env::create(&app.pool, bob.id, "bobs-env").await.unwrap();
+    let cookie = app.sign_in(alice.id).await;
 
-    let form = "slug=needsenv&mode=bound&env_id=&code=def+handler%28%29%3A+return+1";
-    let res = post_form(&app, &cookie, "/functions", form).await;
+    // Alice tries to bind a function to Bob's env.
+    let form = format!(
+        "slug=stolen&target={}&code=def+handler%28%29%3A+return+1",
+        bob_env.id
+    );
+    let res = post_form(&app, &cookie, "/functions", &form).await;
     assert_eq!(res.status(), StatusCode::SEE_OTHER);
     let location = res
         .headers()
@@ -121,7 +128,6 @@ async fn create_bound_without_env_renders_error() {
         "expected redirect to /dashboard?error=..., got {location}"
     );
 
-    // Follow the redirect and confirm the error message surfaces in the HTML.
     let res = app
         .router
         .clone()
@@ -137,12 +143,11 @@ async fn create_bound_without_env_renders_error() {
     assert_eq!(res.status(), StatusCode::OK);
     let body = body_string(res).await;
     assert!(
-        body.contains("env_id is required"),
+        body.contains("environment does not exist"),
         "dashboard should surface the validation error; body: {body}"
     );
 
-    // And no function was created.
-    let list = Function::list_for_user(&app.pool, user.id).await.unwrap();
+    let list = Function::list_for_user(&app.pool, alice.id).await.unwrap();
     assert!(list.is_empty());
 }
 
@@ -188,7 +193,7 @@ async fn create_function_bound_with_valid_env_succeeds() {
     let cookie = app.sign_in(user.id).await;
 
     let form = format!(
-        "slug=boundfn&mode=bound&env_id={}&code=def+handler%28%29%3A+return+1",
+        "slug=boundfn&target={}&code=def+handler%28%29%3A+return+1",
         env.id
     );
     let res = post_form(&app, &cookie, "/functions", &form).await;
