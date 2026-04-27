@@ -19,16 +19,14 @@ with bearer tokens.
 git clone https://github.com/you/monty-server
 cd monty-server
 
-# 2. Register a GitHub OAuth App at
-#    https://github.com/settings/developers → New OAuth App
-#    - Homepage URL:              http://localhost:3000
-#    - Authorization callback URL: http://localhost:3000/auth/callback
-
-# 3. Configure env vars (see .env.example)
+# 2. Configure env vars (see .env.example)
 cp .env.example .env
-# fill in GITHUB_CLIENT_ID / _SECRET / SESSION_SECRET
+# fill in SESSION_SECRET (≥ 64 bytes) and BASE_URL
+# optional: GITHUB_CLIENT_ID / _SECRET to enable "Sign in with GitHub"
+#   (register an OAuth App at https://github.com/settings/developers,
+#    callback URL: http://localhost:3000/auth/callback)
 
-# 4. Run
+# 3. Run
 cargo run --release
 # → listening on 0.0.0.0:3000
 ```
@@ -41,10 +39,10 @@ Then open <http://localhost:3000/auth/login>.
 fly launch --no-deploy                  # creates app
 fly volumes create monty_data --size 10 # 10 GB persistent volume
 fly secrets set \
-    GITHUB_CLIENT_ID=... \
-    GITHUB_CLIENT_SECRET=... \
     SESSION_SECRET="$(openssl rand -hex 32)" \
     BASE_URL=https://<your-app>.fly.dev
+# optional, to enable "Sign in with GitHub":
+#   fly secrets set GITHUB_CLIENT_ID=... GITHUB_CLIENT_SECRET=...
 fly deploy
 ```
 
@@ -145,8 +143,8 @@ All config is from env vars. See [`.env.example`](./.env.example) for the full l
 |----------|----------|-------------|
 | `DATA_DIR` | ✅ | Directory for SQLite + env snapshots + files |
 | `BASE_URL` | ✅ | Public URL (for OAuth callback) |
-| `GITHUB_CLIENT_ID` | ✅ | GitHub OAuth App client id (empty string disables OAuth) |
-| `GITHUB_CLIENT_SECRET` | ✅ | GitHub OAuth App client secret |
+| `GITHUB_CLIENT_ID` | | GitHub OAuth App client id (unset/empty disables "Sign in with GitHub"; email/password still works) |
+| `GITHUB_CLIENT_SECRET` | | GitHub OAuth App client secret |
 | `SESSION_SECRET` | ✅ | Random secret (≥ 64 bytes) for session cookies |
 | `ADMIN_EMAIL` | | Seeds a local admin user on startup (with `ADMIN_PASSWORD`) |
 | `ADMIN_PASSWORD` | | Admin password (≥ 8 chars); must be set together with `ADMIN_EMAIL` |
