@@ -289,6 +289,7 @@ async fn bound_function_calls_succeed_without_mutating_env() {
     let exec = monty_server::envs::executor::MontyExecutor::new(
         storage.clone(),
         LockRegistry::new(),
+        common::sandbox().await,
     );
     exec.execute(&env.id, "value = 100").await.unwrap();
 

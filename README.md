@@ -5,10 +5,13 @@ interpreter as a multi-tenant service. Users sign in with GitHub, create persist
 sandboxed Python environments, and run code via a web UI or HTTP API authenticated
 with bearer tokens.
 
-- **Stateful envs** — each env persists its globals/heap to disk via `MontyRepl::dump`
+- **Stateful envs** — each env persists its globals/heap to disk as a Monty session snapshot
+- **Crash-isolated execution** — code runs in a pool of `monty` worker subprocesses
+  ([`monty-pool`](https://crates.io/crates/monty-pool)), with per-call memory and time limits;
+  a crash or limit kill takes down one worker, never the server
 - **Sandboxed filesystem** — each env mounts a private directory at `/mnt` inside the sandbox
 - **Two sign-in options** — email/password (with admin approval) or GitHub OAuth
-- **Single binary** — Axum + SQLite + local disk, no external services
+- **Self-contained** — the server binary plus the `monty` worker binary; Axum + SQLite + local disk, no external services
 
 ![Dashboard](docs/images/dashboard.png)
 
@@ -26,7 +29,10 @@ cp .env.example .env
 #   (register an OAuth App at https://github.com/settings/developers,
 #    callback URL: http://localhost:3000/auth/callback)
 
-# 3. Run
+# 3. Install the sandbox worker (must match the monty-pool version in Cargo.toml)
+cargo install monty-runtime --version 1.5.0 --no-default-features --locked
+
+# 4. Run
 cargo run --release
 # → listening on 0.0.0.0:3000
 ```
@@ -76,7 +82,9 @@ via the dashboard at `/dashboard`.
 
 A **function** is a saved Python snippet with a top-level `def handler(...)` that
 you invoke over HTTP. The JSON request body is bound to the handler's kwargs,
-and whatever the handler returns is JSON-encoded back to the caller.
+and whatever the handler returns is encoded with Python's `json.dumps` and sent back
+to the caller (tuples become arrays; values `json` can't encode, such as `bytes`,
+return `500`).
 
 Type annotations on the handler drive request validation. Supported types are
 `str`, `int`, `float`, `bool`, `list`, `dict`, and `None`. Missing keys,
@@ -89,6 +97,17 @@ Each function runs in one of two modes:
 - **bound** — runs against an env's serialized heap with the env's `/mnt`
   files mounted read-only. The handler sees the env's state, but mutations
   made during the call are discarded (the env itself isn't modified).
+
+Inside the sandbox, the working directory is `/mnt` for envs and bound functions
+(so relative paths like `open("data.csv")` read the env's files) and `/` otherwise.
+
+### Upgrading from monty-server built on Monty < 1.0
+
+Env snapshots written by the old pinned Monty revision can't be loaded by Monty 1.5.
+The first call into such an env moves the old snapshot to `snapshot.bin.legacy`,
+starts the env with empty globals, and prints a notice on stderr. Files under `/mnt`
+are untouched. Bound functions on a not-yet-reset env return an error asking you to
+run any code in the env first.
 
 Functions are private by default: callers must present a bearer token via
 `POST /fn/:slug`. Flipping the `is_public` flag mints an unguessable token and
@@ -148,22 +167,30 @@ All config is from env vars. See [`.env.example`](./.env.example) for the full l
 | `SESSION_SECRET` | ✅ | Random secret (≥ 64 bytes) for session cookies |
 | `ADMIN_EMAIL` | | Seeds a local admin user on startup (with `ADMIN_PASSWORD`) |
 | `ADMIN_PASSWORD` | | Admin password (≥ 8 chars); must be set together with `ADMIN_EMAIL` |
+| `MONTY_WORKER_BIN` | | Path to the `monty` worker binary. Default: `monty` next to the server binary, else on `PATH` |
+| `MONTY_MIN_WORKERS` | | Workers kept warm (default `1`) |
+| `MONTY_MAX_WORKERS` | | Max concurrent executions (default `3`). Each worker may use up to 128 MB of heap |
 | `RUST_LOG` | | Tracing filter (default `info`) |
 
 ## Architecture
 
 - `src/auth/` — GitHub OAuth + session/bearer extractors
-- `src/envs/` — env storage, per-env locks, Monty-backed executor
+- `src/sandbox.rs` — the `monty-pool` worker pool, resource limits, and the loop that
+  answers sandbox suspensions (file I/O against `/mnt`, sleeps)
+- `src/envs/` — env storage, per-env locks, REPL executor (restore → feed → dump)
+- `src/functions/` — handler signature parsing, request validation, function executor
 - `src/models/` — User / ApiKey / Env (sqlx)
 - `src/routes/api.rs` — JSON API under `/api/v1/*`
 - `src/routes/web.rs` — HTMX-driven UI
-- `monty` — Monty interpreter, pinned as a git dependency in `Cargo.toml`
+- `monty-pool` / `monty-types` — pinned to an exact version in `Cargo.toml`; the worker
+  binary (`monty-runtime`) must be the same version
 
 See [`docs/plans/`](./docs/plans/) for design decisions and the implementation plan.
 
 ## Development
 
 ```bash
-cargo test                        # run all tests
+cargo test                        # run all tests (needs the `monty` worker; see above,
+                                  # or point MONTY_WORKER_BIN at it)
 cargo run -- --help               # run the server
 ```

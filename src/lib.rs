@@ -11,6 +11,7 @@ pub mod error;
 pub mod functions;
 pub mod models;
 pub mod routes;
+pub mod sandbox;
 
 pub use config::Config;
 use envs::executor::MontyExecutor;
@@ -18,6 +19,7 @@ use envs::locks::LockRegistry;
 use envs::storage::EnvStorage;
 use functions::executor::FunctionExecutor;
 use models::User;
+use sandbox::Sandbox;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -48,8 +50,13 @@ async fn build(config: Config, pool: SqlitePool) -> anyhow::Result<Router> {
     let session_layer = auth::session::install(pool.clone()).await?;
     let env_storage = EnvStorage::new(&config.data_dir);
     let locks = LockRegistry::new();
-    let executor = Arc::new(MontyExecutor::new(env_storage.clone(), locks.clone()));
-    let fn_executor = Arc::new(FunctionExecutor::new(env_storage.clone(), locks));
+    let sandbox = Arc::new(Sandbox::new(config.sandbox.clone()).await?);
+    let executor = Arc::new(MontyExecutor::new(
+        env_storage.clone(),
+        locks.clone(),
+        sandbox.clone(),
+    ));
+    let fn_executor = Arc::new(FunctionExecutor::new(env_storage.clone(), locks, sandbox));
     if let (Some(email), Some(password)) = (&config.admin_email, &config.admin_password) {
         User::ensure_admin(&pool, email, password).await?;
         tracing::info!(admin_email = %email, "admin user seeded");

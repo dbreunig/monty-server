@@ -72,6 +72,19 @@ impl EnvStorage {
         Ok(())
     }
 
+    /// Moves an unloadable snapshot aside to `snapshot.bin.legacy` (kept for
+    /// manual recovery) and leaves an empty snapshot in its place.
+    pub async fn archive_snapshot(&self, id: &str) -> Result<()> {
+        let env_dir = self.env_dir(id)?;
+        fs::rename(env_dir.join("snapshot.bin"), env_dir.join("snapshot.bin.legacy"))
+            .await
+            .context("archive legacy snapshot")?;
+        fs::File::create(env_dir.join("snapshot.bin"))
+            .await
+            .context("create empty snapshot")?;
+        Ok(())
+    }
+
     pub fn files_dir(&self, id: &str) -> Result<PathBuf> {
         Ok(self.env_dir(id)?.join("files"))
     }

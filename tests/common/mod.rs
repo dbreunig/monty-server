@@ -1,5 +1,6 @@
 use axum::Router;
 use monty_server::models::User;
+use monty_server::sandbox::{Sandbox, SandboxConfig};
 use monty_server::{Config, app_with_pool, db};
 use sqlx::SqlitePool;
 use std::sync::Arc;
@@ -15,6 +16,7 @@ pub struct TestApp {
 }
 
 impl TestApp {
+    #[allow(dead_code)]
     pub async fn new() -> Self {
         let tmp = tempfile::tempdir().unwrap();
         let config = Config::for_test(tmp.path().to_path_buf());
@@ -57,4 +59,16 @@ impl TestApp {
         let id = session.id().expect("session id assigned after save");
         format!("id={id}")
     }
+}
+
+/// A small worker pool for tests that drive executors directly. Needs the
+/// `monty` worker binary (see `MONTY_WORKER_BIN` in the README).
+#[allow(dead_code)]
+pub async fn sandbox() -> Arc<Sandbox> {
+    let config = SandboxConfig {
+        worker_bin: monty_server::config::monty_worker_bin(),
+        min_workers: 0,
+        ..SandboxConfig::default()
+    };
+    Arc::new(Sandbox::new(config).await.expect("start monty worker pool"))
 }

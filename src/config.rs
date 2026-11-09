@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 
+use crate::sandbox::SandboxConfig;
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub data_dir: PathBuf,
@@ -19,6 +21,8 @@ pub struct Config {
     /// is seeded on startup. That user is auto-approved and can approve others.
     pub admin_email: Option<String>,
     pub admin_password: Option<String>,
+    /// Monty worker pool settings.
+    pub sandbox: SandboxConfig,
 }
 
 const DEFAULT_GITHUB_AUTH_URL: &str = "https://github.com/login/oauth/authorize";
@@ -49,6 +53,17 @@ impl Config {
             bail!("ADMIN_EMAIL and ADMIN_PASSWORD must be set together, or neither");
         }
 
+        let mut sandbox = SandboxConfig {
+            worker_bin: monty_worker_bin(),
+            ..SandboxConfig::default()
+        };
+        if let Some(n) = env_usize("MONTY_MIN_WORKERS")? {
+            sandbox.min_workers = n;
+        }
+        if let Some(n) = env_usize("MONTY_MAX_WORKERS")? {
+            sandbox.max_workers = n;
+        }
+
         Ok(Self {
             data_dir,
             github_client_id,
@@ -60,6 +75,7 @@ impl Config {
             github_api_base: DEFAULT_GITHUB_API_BASE.to_string(),
             admin_email,
             admin_password,
+            sandbox,
         })
     }
 
@@ -76,7 +92,49 @@ impl Config {
             github_api_base: DEFAULT_GITHUB_API_BASE.to_string(),
             admin_email: None,
             admin_password: None,
+            sandbox: SandboxConfig {
+                worker_bin: monty_worker_bin(),
+                min_workers: 0,
+                ..SandboxConfig::default()
+            },
         }
+    }
+}
+
+/// Where to find the `monty` worker binary: `MONTY_WORKER_BIN` if set, else a
+/// `monty` next to this executable, else `monty` on `PATH`.
+///
+/// The `PATH` lookup happens here, in the server's environment: monty-pool
+/// spawns workers with a cleared environment, so a bare `monty` would never
+/// be found there.
+pub fn monty_worker_bin() -> PathBuf {
+    if let Some(path) = std::env::var_os("MONTY_WORKER_BIN").filter(|p| !p.is_empty()) {
+        return PathBuf::from(path);
+    }
+    if let Some(sibling) = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|dir| dir.join("monty")))
+        .filter(|p| p.is_file())
+    {
+        return sibling;
+    }
+    std::env::var_os("PATH")
+        .and_then(|paths| {
+            std::env::split_paths(&paths)
+                .map(|dir| dir.join("monty"))
+                .find(|p| p.is_file())
+        })
+        // Not found: keep the bare name so the startup error says what's missing.
+        .unwrap_or_else(|| PathBuf::from("monty"))
+}
+
+fn env_usize(name: &str) -> Result<Option<usize>> {
+    match std::env::var(name) {
+        Ok(v) if !v.is_empty() => v
+            .parse()
+            .map(Some)
+            .with_context(|| format!("{name} must be a non-negative integer")),
+        _ => Ok(None),
     }
 }
 

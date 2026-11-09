@@ -41,8 +41,10 @@ time = "0.3"
 askama = "0.12"
 askama_axum = "0.4"
 dashmap = "6"
-monty = { git = "https://github.com/pydantic/monty", rev = "33e47c64dcb915f32932d647d853d1cb9a24a1b9" }
-postcard = { version = "1", features = ["use-std"] }
+# Untrusted code runs in `monty` worker subprocesses (crate `monty-runtime`,
+# same version) managed by monty-pool; the server never links the interpreter.
+monty-pool = "=1.5.0"
+monty-types = "=1.5.0"
 dotenvy = "0.15"
 
 [dev-dependencies]
