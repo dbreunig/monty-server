@@ -1,29 +1,33 @@
 <div id="api-keys">
 {% if let Some(plaintext) = new_plaintext %}
 <div class="alert alert-warning">
-    <strong>Copy this token now</strong> — you will not see it again.
+    <strong>Copy this key now.</strong> It won't be shown again.
     <div class="token-reveal">{{ plaintext }}</div>
 </div>
 {% endif %}
 {% if api_keys.is_empty() %}
-<div class="empty-state">No API keys yet.</div>
+<div class="empty-state">No API keys</div>
 {% else %}
+<div class="table-wrap">
 <table class="data-table">
-    <thead><tr><th>Name</th><th>Prefix</th><th>Created</th><th></th></tr></thead>
+    <thead><tr><th>Name</th><th>Key</th><th class="hide-sm">Last used</th><th class="hide-sm">Created</th><th></th></tr></thead>
     <tbody>
         {% for key in api_keys %}
         <tr>
             <td>{{ key.name }}</td>
-            <td><code class="inline">{{ key.prefix }}…</code></td>
-            <td class="muted">{{ key.created_at }}</td>
+            <td><span class="ident">{{ key.prefix }}…</span></td>
+            <td class="when hide-sm">{% if let Some(used) = key.last_used_at %}<time datetime="{{ used.to_rfc3339() }}">{{ used.format("%b %-d, %Y") }}</time>{% else %}Never{% endif %}</td>
+            <td class="when hide-sm"><time datetime="{{ key.created_at.to_rfc3339() }}">{{ key.created_at.format("%b %-d, %Y") }}</time></td>
             <td class="actions">
                 <button class="btn-danger btn-sm"
                         hx-post="/api-keys/{{ key.id }}/delete"
+                        hx-confirm="Delete key {{ key.name }}? Clients using it will stop working."
                         hx-target="#api-keys" hx-swap="outerHTML">Delete</button>
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% endif %}
 </div>

@@ -1,7 +1,8 @@
 <div id="pending">
 {% if pending.is_empty() %}
-<div class="empty-state">No accounts waiting for approval.</div>
+<div class="empty-state">No pending accounts</div>
 {% else %}
+<div class="table-wrap">
 <table class="data-table">
     <thead><tr><th>User</th><th>Email</th><th>Created</th><th></th></tr></thead>
     <tbody>
@@ -9,7 +10,7 @@
         <tr>
             <td>{{ u.display_name() }}</td>
             <td class="muted">{% if let Some(email) = u.email.as_ref() %}{{ email }}{% else %}—{% endif %}</td>
-            <td class="muted">{{ u.created_at }}</td>
+            <td class="when"><time datetime="{{ u.created_at.to_rfc3339() }}">{{ u.created_at.format("%b %-d, %Y %H:%M") }}</time></td>
             <td class="actions">
                 <button class="btn-primary btn-sm"
                         hx-post="/admin/approve/{{ u.id }}"
@@ -19,5 +20,6 @@
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% endif %}
 </div>

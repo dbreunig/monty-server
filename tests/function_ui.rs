@@ -243,7 +243,7 @@ async fn detail_page_shows_code_and_call_url() {
     // Authed call URL (private function).
     assert!(body.contains("/fn/greet"), "body should show /fn/greet call URL");
     // Empty call log.
-    assert!(body.contains("No calls yet"), "body should show empty-state; got: {body}");
+    assert!(body.contains("No calls"), "body should show empty-state; got: {body}");
 }
 
 #[tokio::test]

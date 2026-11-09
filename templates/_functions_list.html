@@ -1,31 +1,30 @@
 <div id="functions-list">
-{% if functions.is_empty() %}
-<div class="empty-state">No functions yet.</div>
-{% else %}
+{% if !functions.is_empty() %}
+<div class="table-wrap">
 <table class="data-table">
-    <thead><tr><th>Slug</th><th>Mode</th><th>URL</th><th>Updated</th><th></th></tr></thead>
+    <thead><tr><th>Slug</th><th class="hide-sm">Runs in</th><th>Endpoint</th><th class="hide-sm">Updated</th><th></th></tr></thead>
     <tbody>
         {% for function in functions %}
         <tr data-href="/functions/{{ function.id }}">
             <td><a href="/functions/{{ function.id }}">{{ function.slug }}</a></td>
-            <td>
+            <td class="hide-sm">
                 <span class="badge badge-{{ function.mode }}">{{ function.mode }}</span>
-                {% if function.is_public %}<span class="badge badge-public">public</span>{% endif %}
+                {%- if function.is_public %}<span class="badge badge-public">public</span>{% endif %}
             </td>
             <td>
                 {% if function.is_public %}
                     {% if let Some(token) = function.public_token.as_ref() %}
-                    <code class="inline" data-copy="/fn/p/{{ token }}">/fn/p/{{ token }}</code>
+                    <span class="ident" data-copy="/fn/p/{{ token }}" title="Copy /fn/p/{{ token }}">/fn/p/{{ token }}</span>
                     {% else %}
-                    <code class="inline">/fn/{{ function.slug }}</code>
+                    <span class="ident">/fn/{{ function.slug }}</span>
                     {% endif %}
                 {% else %}
-                <code class="inline" data-copy="/fn/{{ function.slug }}">/fn/{{ function.slug }}</code>
+                <span class="ident" data-copy="/fn/{{ function.slug }}" title="Copy /fn/{{ function.slug }}">/fn/{{ function.slug }}</span>
                 {% endif %}
             </td>
-            <td class="muted">{{ function.updated_at }}</td>
+            <td class="when hide-sm"><time datetime="{{ function.updated_at.to_rfc3339() }}">{{ function.updated_at.format("%b %-d, %Y") }}</time></td>
             <td class="actions">
-                <button type="button" class="btn-secondary btn-sm" data-copy="{{ function.curl_command }}">Copy cURL</button>
+                <button type="button" class="btn-ghost btn-sm hide-sm" data-copy="{{ function.curl_command }}">Copy cURL</button>
                 <form method="post" action="/functions/{{ function.id }}/delete"
                       onsubmit="return confirm('Delete {{ function.slug }}?');">
                     <button type="submit" class="btn-danger btn-sm">Delete</button>
@@ -35,5 +34,6 @@
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% endif %}
 </div>

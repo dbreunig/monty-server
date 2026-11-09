@@ -1,7 +1,8 @@
 <div id="function-calls">
 {% if calls.is_empty() %}
-<div class="empty-state">No calls yet.</div>
+<div class="empty-state">No calls</div>
 {% else %}
+<div class="table-wrap">
 <table class="data-table">
     <thead>
         <tr>
@@ -26,7 +27,7 @@
                 {% endif %}
             </td>
             <td class="muted">{{ call.duration_ms }} ms</td>
-            <td class="muted">{{ call.created_at }}</td>
+            <td class="when"><time datetime="{{ call.created_at.to_rfc3339() }}">{{ call.created_at.format("%b %-d, %Y %H:%M") }}</time></td>
             <td>
                 <details class="call-details">
                     <summary>view</summary>
@@ -54,5 +55,6 @@
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% endif %}
 </div>

@@ -1,4 +1,5 @@
 <div id="files-panel" class="files-panel">
+    <div class="files-toolbar">
     <nav class="path-bar" aria-label="File path">
         {%- if panel_path.is_empty() %}
         <span class="crumb-current">/mnt</span>
@@ -20,12 +21,14 @@
           hx-target="#files-panel" hx-swap="outerHTML"
           hx-encoding="multipart/form-data">
         <input type="file" name="file" required>
-        <button type="submit" class="btn-primary">Upload</button>
+        <button type="submit">Upload</button>
     </form>
+    </div>
 
     {% if panel_entries.is_empty() %}
-    <div class="empty-state">{% if panel_path.is_empty() %}No files yet.{% else %}Empty folder.{% endif %}</div>
+    <div class="empty-state">{% if panel_path.is_empty() %}No files{% else %}Empty folder{% endif %}</div>
     {% else %}
+    <div class="table-wrap">
     <table class="data-table files-table">
         <thead><tr><th class="icon-col"></th><th>Name</th><th>Size</th><th></th></tr></thead>
         <tbody>
@@ -74,5 +77,6 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% endif %}
 </div>

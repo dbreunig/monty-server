@@ -1,24 +1,26 @@
 <div id="env-list">
 {% if envs.is_empty() %}
-<div class="empty-state">No environments yet.</div>
+<div class="empty-state">No environments</div>
 {% else %}
+<div class="table-wrap">
 <table class="data-table">
-    <thead><tr><th>Name</th><th>Id</th><th>Updated</th><th></th></tr></thead>
+    <thead><tr><th>Name</th><th>ID</th><th class="hide-sm">Updated</th><th></th></tr></thead>
     <tbody>
         {% for env in envs %}
         <tr data-href="/envs/{{ env.id }}">
             <td><a href="/envs/{{ env.id }}">{{ env.name }}</a></td>
-            <td><code class="inline">{{ env.id }}</code></td>
-            <td class="muted">{{ env.updated_at }}</td>
+            <td><span class="ident" data-copy="{{ env.id }}" title="Copy {{ env.id }}">{{ env.id }}</span></td>
+            <td class="when hide-sm"><time datetime="{{ env.updated_at.to_rfc3339() }}">{{ env.updated_at.format("%b %-d, %Y") }}</time></td>
             <td class="actions">
                 <button class="btn-danger btn-sm"
                         hx-delete="/envs/{{ env.id }}"
-                        hx-confirm="Delete {{ env.name }}?"
+                        hx-confirm="Delete {{ env.name }} and its files?"
                         hx-target="#env-list" hx-swap="outerHTML">Delete</button>
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% endif %}
 </div>

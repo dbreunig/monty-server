@@ -1,21 +1,23 @@
 {% extends "base.html" %}
 {% block title %}{{ env.name }} — monty{% endblock %}
 {% block body %}
-<div class="page">
-    <div class="pagebar">
+<header class="topbar">
+    <div class="topbar-inner">
         <nav class="crumbs">
-            <a href="/dashboard">Dashboard</a>
+            <a class="brand" href="/dashboard">monty</a>
             <span class="crumb-sep">/</span>
             <span class="crumb-current">{{ env.name }}</span>
-            <span class="id-pill">{{ env.id }}</span>
+            <span class="id-pill" data-copy="{{ env.id }}" title="Copy {{ env.id }}">{{ env.id }}</span>
         </nav>
-        <div class="pagebar-actions">
-            {% if user.is_admin %}<a class="pagebar-link" href="/admin">Admin</a>{% endif %}
+        <div class="topbar-actions">
+            {% if user.is_admin %}<a class="topbar-link" href="/admin">Admin</a>{% endif %}
             <form method="post" action="/auth/logout">
-                <button type="submit" class="pagebar-btn">Sign out</button>
+                <button type="submit" class="topbar-link">Sign out</button>
             </form>
         </div>
     </div>
+</header>
+<main class="page">
 
     <section class="section">
         <div class="section-header">
@@ -56,7 +58,7 @@
             </form>
         </div>
     </section>
-</div>
+</main>
 <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
 <script>

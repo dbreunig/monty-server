@@ -1,21 +1,22 @@
 {% extends "base.html" %}
 {% block title %}{{ function.slug }} — monty{% endblock %}
 {% block body %}
-<div class="page">
-    <div class="pagebar">
+<header class="topbar">
+    <div class="topbar-inner">
         <nav class="crumbs">
-            <a href="/dashboard">Dashboard</a>
+            <a class="brand" href="/dashboard">monty</a>
             <span class="crumb-sep">/</span>
             <span class="crumb-current">{{ function.slug }}</span>
-            <span class="id-pill">{{ function.id }}</span>
         </nav>
-        <div class="pagebar-actions">
-            {% if user.is_admin %}<a class="pagebar-link" href="/admin">Admin</a>{% endif %}
+        <div class="topbar-actions">
+            {% if user.is_admin %}<a class="topbar-link" href="/admin">Admin</a>{% endif %}
             <form method="post" action="/auth/logout">
-                <button type="submit" class="pagebar-btn">Sign out</button>
+                <button type="submit" class="topbar-link">Sign out</button>
             </form>
         </div>
     </div>
+</header>
+<main class="page">
 
     {% if let Some(err) = error_message %}
     <div class="alert alert-warning">
@@ -25,19 +26,31 @@
 
     <section class="section">
         <div class="section-header">
-            <h2>{{ function.slug }}</h2>
+            <h2>Endpoint</h2>
             <span class="badge badge-{{ function.mode }}">{{ function.mode }}</span>
-            {% if function.is_public %}<span class="badge badge-public">public</span>{% endif %}
+            {%- if function.is_public %}<span class="badge badge-public">public</span>{% endif %}
+            <div class="header-actions">
+                {% if function.is_public %}
+                <form method="post" action="/functions/{{ function.id }}/rotate"
+                      onsubmit="return confirm('Rotate the public URL? The current one stops working.');">
+                    <button type="submit" class="btn-sm">Rotate URL</button>
+                </form>
+                {% endif %}
+                <form method="post" action="/functions/{{ function.id }}/delete"
+                      onsubmit="return confirm('Delete {{ function.slug }}?');">
+                    <button type="submit" class="btn-danger btn-sm">Delete</button>
+                </form>
+            </div>
         </div>
-        <div class="creator-row">
+        <div class="section-body endpoint-row">
             {% if function.is_public %}
                 {% if let Some(token) = function.public_token.as_ref() %}
-                <code class="inline" data-copy="/fn/p/{{ token }}">POST /fn/p/{{ token }}</code>
+                <code class="inline" data-copy="/fn/p/{{ token }}" title="Copy">POST /fn/p/{{ token }}</code>
                 {% else %}
-                <code class="inline" data-copy="/fn/{{ function.slug }}">POST /fn/{{ function.slug }}</code>
+                <code class="inline" data-copy="/fn/{{ function.slug }}" title="Copy">POST /fn/{{ function.slug }}</code>
                 {% endif %}
             {% else %}
-            <code class="inline" data-copy="/fn/{{ function.slug }}">POST /fn/{{ function.slug }}</code>
+            <code class="inline" data-copy="/fn/{{ function.slug }}" title="Copy">POST /fn/{{ function.slug }}</code>
             {% endif %}
         </div>
     </section>
@@ -46,29 +59,18 @@
         <div class="section-header">
             <h2>Code</h2>
         </div>
-        <form class="creator-stack" method="post" action="/functions/{{ function.id }}">
+        <form class="section-body creator-stack" method="post" action="/functions/{{ function.id }}">
             <textarea name="code" class="code-editor" rows="14" required>{{ function.code }}</textarea>
             <div class="creator-row">
                 <label class="checkbox">
-                    <input type="checkbox" name="is_public" value="on"{% if function.is_public %} checked{% endif %}> public
+                    <input type="checkbox" name="is_public" value="on"{% if function.is_public %} checked{% endif %}> Public URL
                 </label>
                 <label class="checkbox">
-                    <input type="checkbox" name="truncate_logs" value="on"{% if function.truncate_logs %} checked{% endif %}> truncate logs
+                    <input type="checkbox" name="truncate_logs" value="on"{% if function.truncate_logs %} checked{% endif %}> Truncate logs
                 </label>
                 <button type="submit" class="btn-primary">Save</button>
             </div>
         </form>
-        <div class="creator-row">
-            {% if function.is_public %}
-            <form method="post" action="/functions/{{ function.id }}/rotate">
-                <button type="submit" class="btn-secondary">Rotate public URL</button>
-            </form>
-            {% endif %}
-            <form method="post" action="/functions/{{ function.id }}/delete"
-                  onsubmit="return confirm('Delete {{ function.slug }}?');">
-                <button type="submit" class="btn-danger">Delete</button>
-            </form>
-        </div>
     </section>
 
     <section class="section">
@@ -78,5 +80,5 @@
         </div>
         {% include "_function_calls.html" %}
     </section>
-</div>
+</main>
 {% endblock %}

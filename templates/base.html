@@ -10,13 +10,28 @@
 <body>
 {% block body %}{% block content %}{% endblock %}{% endblock %}
 <script>
-    (() => {
-        const bar = document.querySelector('.pagebar');
-        if (!bar) return;
-        const update = () => bar.classList.toggle('pinned', window.scrollY > 2);
-        window.addEventListener('scroll', update, { passive: true });
-        update();
-    })();
+    // Show recent timestamps relative to now; the full local time is in the tooltip.
+    const relTime = (root) => {
+        const now = Date.now();
+        const fmtDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+        const fmtFull = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+        root.querySelectorAll('time[datetime]').forEach((el) => {
+            const d = new Date(el.getAttribute('datetime'));
+            if (isNaN(d)) return;
+            const s = Math.round((now - d) / 1000);
+            let text;
+            if (s < 60) text = 'just now';
+            else if (s < 3600) text = Math.floor(s / 60) + ' min ago';
+            else if (s < 86400) text = Math.floor(s / 3600) + ' h ago';
+            else if (s < 7 * 86400) text = Math.floor(s / 86400) + ' d ago';
+            else if (d.getFullYear() === new Date().getFullYear()) text = fmtDate.format(d);
+            else text = el.textContent;
+            el.textContent = text;
+            el.title = fmtFull.format(d);
+        });
+    };
+    relTime(document);
+    document.addEventListener('htmx:afterSettle', () => relTime(document));
 
     document.addEventListener('click', (e) => {
         const row = e.target.closest('tr[data-href]');

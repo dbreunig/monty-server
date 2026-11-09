@@ -1,19 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Admin — monty{% endblock %}
 {% block body %}
-<div class="page">
-    <div class="pagebar">
+<header class="topbar">
+    <div class="topbar-inner">
         <nav class="crumbs">
-            <a href="/dashboard">Dashboard</a>
+            <a class="brand" href="/dashboard">monty</a>
             <span class="crumb-sep">/</span>
             <span class="crumb-current">Admin</span>
         </nav>
-        <div class="pagebar-actions">
+        <div class="topbar-actions">
             <form method="post" action="/auth/logout">
-                <button type="submit" class="pagebar-btn">Sign out</button>
+                <button type="submit" class="topbar-link">Sign out</button>
             </form>
         </div>
     </div>
+</header>
+<main class="page">
 
     <section class="section">
         <div class="section-header">
@@ -22,5 +24,5 @@
         </div>
         <div id="pending">{% include "_admin_pending.html" %}</div>
     </section>
-</div>
+</main>
 {% endblock %}

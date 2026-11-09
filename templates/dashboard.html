@@ -1,19 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — {{ user.display_name() }}{% endblock %}
 {% block body %}
-<div class="page">
-    <div class="pagebar">
+<header class="topbar">
+    <div class="topbar-inner">
         <nav class="crumbs">
-            <span class="crumb-current">Dashboard</span>
+            <a class="brand" href="/dashboard">monty</a>
         </nav>
-        <div class="pagebar-actions">
-            {% if user.is_admin %}<a class="pagebar-link" href="/admin">Admin</a>{% endif %}
+        <div class="topbar-actions">
+            {% if user.is_admin %}<a class="topbar-link" href="/admin">Admin</a>{% endif %}
             <form method="post" action="/auth/logout">
-                <button type="submit" class="pagebar-btn">Sign out</button>
+                <button type="submit" class="topbar-link">Sign out</button>
             </form>
         </div>
     </div>
-
+</header>
+<main class="page">
     {% if !user.is_approved() %}
     <div class="alert alert-warning">
         <strong>Your account is pending administrator approval.</strong>
@@ -22,32 +23,21 @@
     {% else %}
 
     {% if let Some(err) = error_message %}
-    <div class="alert alert-warning">
-        <strong>Error:</strong> {{ err }}
-    </div>
+    <div class="alert alert-warning">{{ err }}</div>
     {% endif %}
-
-    <section class="section">
-        <div class="section-header">
-            <h2>API keys</h2>
-            <span class="count">{{ api_keys.len() }}</span>
-        </div>
-        <form class="creator-row" hx-post="/api-keys" hx-target="#api-keys" hx-swap="outerHTML">
-            <input type="text" name="name" placeholder="Name for the new API key" required>
-            <button type="submit" class="btn-primary">Create API key</button>
-        </form>
-        <div id="api-keys">{% include "_api_keys.html" %}</div>
-    </section>
 
     <section class="section">
         <div class="section-header">
             <h2>Environments</h2>
             <span class="count">{{ envs.len() }}</span>
+            <div class="header-actions">
+                <form class="inline-create" hx-post="/envs" hx-target="#env-list" hx-swap="outerHTML"
+                      hx-on::after-request="if (event.detail.successful) this.reset()">
+                    <input type="text" name="name" placeholder="Environment name" aria-label="Environment name" required>
+                    <button type="submit">Create</button>
+                </form>
+            </div>
         </div>
-        <form class="creator-row" hx-post="/envs" hx-target="#env-list" hx-swap="outerHTML">
-            <input type="text" name="name" placeholder="Name for the new environment" required>
-            <button type="submit" class="btn-primary">Create environment</button>
-        </form>
         <div id="env-list">{% include "_env_list.html" %}</div>
     </section>
 
@@ -55,14 +45,17 @@
         <div class="section-header">
             <h2>Functions</h2>
             <span class="count">{{ functions.len() }}</span>
+            <div class="header-actions">
+                <button type="button" id="fn-toggle" aria-expanded="false" aria-controls="fn-create">New function</button>
+            </div>
         </div>
-        <form id="fn-create" class="creator-stack" method="post" action="/functions">
-            <input type="text" name="slug" value="function-slug" required>
+<form id="fn-create" class="creator creator-stack" method="post" action="/functions" hidden>
+            <input type="text" name="slug" placeholder="slug" aria-label="Slug" pattern="[a-z0-9][a-z0-9_\-]{0,62}" title="Lowercase letters, digits, _ and -" required>
             <textarea name="code" class="code-editor" rows="6" required>def handler(name: str) -&gt; dict:
     return {&quot;hello&quot;: name}</textarea>
             <div class="creator-row">
                 <label class="field-inline">
-                    Run in:
+                    Run in
                     <select name="target">
                         <option value="stateless" selected>Stateless</option>
                         {% for env in envs %}
@@ -71,8 +64,9 @@
                     </select>
                 </label>
                 <label class="checkbox">
-                    <input type="checkbox" name="is_public" value="on"> public
+                    <input type="checkbox" name="is_public" value="on"> Public URL
                 </label>
+                <button type="button" class="btn-ghost" id="fn-cancel">Cancel</button>
                 <button type="submit" class="btn-primary">Create function</button>
             </div>
         </form>
@@ -103,21 +97,42 @@
                     });
                 }
             });
-            ['slug', 'code'].forEach(function (k) {
-                var el = form.elements[k];
-                if (!el) return;
-                el.addEventListener('focus', function () {
-                    if (el === document.activeElement) el.select();
-                }, { once: false });
-            });
             form.addEventListener('submit', function () {
                 KEYS.forEach(function (k) { localStorage.removeItem(storeKey(k)); });
             });
+
+            var toggle = document.getElementById('fn-toggle');
+            var setOpen = function (open) {
+                form.hidden = !open;
+                toggle.hidden = open;
+                toggle.setAttribute('aria-expanded', String(open));
+                if (open) form.elements.slug.focus();
+            };
+            toggle.addEventListener('click', function () { setOpen(true); });
+            document.getElementById('fn-cancel').addEventListener('click', function () { setOpen(false); });
+            // Reopen an unsaved draft, and open straight away when there's nothing to list.
+            var hasDraft = localStorage.getItem(storeKey('slug')) || localStorage.getItem(storeKey('code'));
+            if (hasDraft || {{ functions.is_empty() }}) { form.hidden = false; toggle.hidden = true; }
         })();
         </script>
         <div id="functions-list">{% include "_functions_list.html" %}</div>
     </section>
 
+    <section class="section">
+        <div class="section-header">
+            <h2>API keys</h2>
+            <span class="count">{{ api_keys.len() }}</span>
+            <div class="header-actions">
+                <form class="inline-create" hx-post="/api-keys" hx-target="#api-keys" hx-swap="outerHTML"
+                      hx-on::after-request="if (event.detail.successful) this.reset()">
+                    <input type="text" name="name" placeholder="Key name" aria-label="Key name" required>
+                    <button type="submit">Create</button>
+                </form>
+            </div>
+        </div>
+        <div id="api-keys">{% include "_api_keys.html" %}</div>
+    </section>
+
     {% endif %}
-</div>
+</main>
 {% endblock %}
