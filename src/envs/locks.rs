@@ -28,20 +28,21 @@ impl LockRegistry {
     }
 
     pub async fn acquire(&self, id: &str) -> LockGuard {
-        let entry = self
-            .inner
-            .entry(id.to_string())
-            .or_insert_with(|| {
+        let mutex = {
+            let entry = self.inner.entry(id.to_string()).or_insert_with(|| {
                 Arc::new(Entry {
                     mutex: Arc::new(Mutex::new(())),
                     holders: AtomicUsize::new(0),
                 })
-            })
-            .clone();
-        entry.holders.fetch_add(1, SeqCst);
-        let mutex = entry.mutex.clone();
-        // Drop the dashmap ref before awaiting to avoid holding shard locks.
-        drop(entry);
+            });
+            // Count ourselves while the shard is still locked. Otherwise a
+            // releasing holder could evict this entry between our lookup and
+            // the increment, and a third caller would get a fresh mutex for
+            // the same id.
+            entry.holders.fetch_add(1, SeqCst);
+            entry.mutex.clone()
+            // The shard lock drops here, before we await.
+        };
         let permit = mutex.lock_owned().await;
         LockGuard {
             _permit: permit,
